@@ -1,25 +1,32 @@
+import type { RefObject } from "react";
 import { transformOriginFor, type Anchor } from "../lib/geometry";
 import type { ChatMessage } from "../lib/types";
 import { PrivacyText } from "./PrivacyText";
-import { MessageTicks } from "./MessageTicks";
+import { PeekMessageList } from "./PeekMessageList";
 import { Composer } from "./Composer";
 
-export const PEEK_SIZE = { width: 300, height: 210 };
+export const PEEK_SIZE = { width: 300, height: 320 };
 
 interface PeekPanelProps {
   isOpen: boolean;
   instant: boolean;
   anchor: Anchor;
   contactName: string;
-  lastMessage: ChatMessage | undefined;
+  messages: ChatMessage[];
   draft: string;
   onDraftChange: (text: string) => void;
   onSend: (text: string) => void;
   onRetry: (messageId: string) => void;
+  onRevealMessage: (messageId: string) => void;
   privacyMode: boolean;
   quickReplies: string[];
   onExpand: () => void;
   onClose: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  onComposerFocusChange: (focused: boolean) => void;
+  emojiTheme: "light" | "dark" | "auto";
+  portalRef: RefObject<HTMLDivElement | null>;
 }
 
 export function PeekPanel({
@@ -27,15 +34,21 @@ export function PeekPanel({
   instant,
   anchor,
   contactName,
-  lastMessage,
+  messages,
   draft,
   onDraftChange,
   onSend,
   onRetry,
+  onRevealMessage,
   privacyMode,
   quickReplies,
   onExpand,
   onClose,
+  onMouseEnter,
+  onMouseLeave,
+  onComposerFocusChange,
+  emojiTheme,
+  portalRef,
 }: PeekPanelProps) {
   return (
     <div
@@ -47,6 +60,8 @@ export function PeekPanel({
         top: anchor.top,
         transformOrigin: transformOriginFor(anchor),
       }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       aria-hidden={!isOpen}
     >
       <div className="pco-peek__top">
@@ -63,17 +78,10 @@ export function PeekPanel({
         </div>
       </div>
 
-      {lastMessage ? (
-        <div className={`pco-bubble-row pco-bubble-row--${lastMessage.direction}`}>
-          <div className={`pco-bubble pco-bubble--${lastMessage.direction}`}>
-            <PrivacyText text={lastMessage.text} enabled={privacyMode} />
-            {lastMessage.direction === "outgoing" && (
-              <MessageTicks state={lastMessage.deliveryState} onRetry={() => onRetry(lastMessage.id)} />
-            )}
-          </div>
-        </div>
-      ) : (
+      {messages.length === 0 ? (
         <div className="pco-peek__empty">No messages yet</div>
+      ) : (
+        <PeekMessageList messages={messages} privacyMode={privacyMode} onRetry={onRetry} onRevealMessage={onRevealMessage} />
       )}
 
       <Composer
@@ -82,6 +90,9 @@ export function PeekPanel({
         onSend={onSend}
         privacyMode={privacyMode}
         quickReplies={quickReplies}
+        onFocusChange={onComposerFocusChange}
+        emojiTheme={emojiTheme}
+        portalRef={portalRef}
         compact
       />
     </div>

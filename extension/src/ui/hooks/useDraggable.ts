@@ -20,6 +20,7 @@ function defaultPosition(): Position {
 
 export interface DraggableApi {
   position: Position;
+  isDragging: boolean;
   onPointerDown: (event: React.PointerEvent) => void;
   consumeDragged: () => boolean;
 }
@@ -27,6 +28,7 @@ export interface DraggableApi {
 /** Free-drag positioning for the FAB, persisted across pages/sessions via chrome.storage.local. */
 export function useDraggable(): DraggableApi {
   const [position, setPosition] = useState<Position>(defaultPosition);
+  const [isDragging, setIsDragging] = useState(false);
   const dragOrigin = useRef({ pointerX: 0, pointerY: 0, startX: 0, startY: 0 });
   const draggedRef = useRef(false);
 
@@ -61,6 +63,7 @@ export function useDraggable(): DraggableApi {
       const target = event.currentTarget;
       target.setPointerCapture(event.pointerId);
       draggedRef.current = false;
+      setIsDragging(true);
       dragOrigin.current = {
         pointerX: event.clientX,
         pointerY: event.clientY,
@@ -83,6 +86,7 @@ export function useDraggable(): DraggableApi {
       const handleUp = (upEvent: PointerEvent) => {
         window.removeEventListener("pointermove", handleMove);
         window.removeEventListener("pointerup", handleUp);
+        setIsDragging(false);
         if (draggedRef.current) {
           const dx = upEvent.clientX - dragOrigin.current.pointerX;
           const dy = upEvent.clientY - dragOrigin.current.pointerY;
@@ -105,5 +109,5 @@ export function useDraggable(): DraggableApi {
     return wasDragged;
   }, []);
 
-  return { position, onPointerDown, consumeDragged };
+  return { position, isDragging, onPointerDown, consumeDragged };
 }

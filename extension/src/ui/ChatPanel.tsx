@@ -1,5 +1,6 @@
+import type { RefObject } from "react";
 import type { ChatController } from "../lib/chatEventBus";
-import type { ChatState } from "../lib/types";
+import type { ChatState, MyStatusPreset } from "../lib/types";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { Composer } from "./Composer";
@@ -15,6 +16,7 @@ interface ChatPanelProps {
   onSend: (text: string) => void;
   onDraftChange: (text: string) => void;
   onRetry: (messageId: string) => void;
+  onRevealMessage: (messageId: string) => void;
   onClose: () => void;
   privacyMode: boolean;
   quickReplies: string[];
@@ -24,6 +26,13 @@ interface ChatPanelProps {
   getController: (id: string) => ChatController | undefined;
   activeId: string;
   onSelectContact: (id: string) => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  onComposerFocusChange: (focused: boolean) => void;
+  myStatus: MyStatusPreset;
+  onMyStatusChange: (status: MyStatusPreset) => void;
+  emojiTheme: "light" | "dark" | "auto";
+  portalRef: RefObject<HTMLDivElement | null>;
 }
 
 /** Right-edge-docked sidebar — pinned position, not tied to the FAB. */
@@ -35,6 +44,7 @@ export function ChatPanel({
   onSend,
   onDraftChange,
   onRetry,
+  onRevealMessage,
   onClose,
   privacyMode,
   quickReplies,
@@ -44,6 +54,13 @@ export function ChatPanel({
   getController,
   activeId,
   onSelectContact,
+  onMouseEnter,
+  onMouseLeave,
+  onComposerFocusChange,
+  myStatus,
+  onMyStatusChange,
+  emojiTheme,
+  portalRef,
 }: ChatPanelProps) {
   const { width, isResizing, onHandlePointerDown } = sidebar;
   const showBack = view === "conversation" && contactIds.length > 1;
@@ -52,12 +69,20 @@ export function ChatPanel({
     <div
       className={`pco-panel${isOpen ? " pco-panel--open" : ""}${isResizing ? " pco-panel--resizing" : ""}${instant ? " pco-panel--instant" : ""}`}
       style={{ width }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       aria-hidden={!isOpen}
     >
       <ResizeHandle onPointerDown={onHandlePointerDown} />
       {view === "list" ? (
         <>
-          <ChatHeader contact={state.contact} onMinimize={onClose} onClose={onClose} />
+          <ChatHeader
+            contact={state.contact}
+            onMinimize={onClose}
+            onClose={onClose}
+            myStatus={myStatus}
+            onMyStatusChange={onMyStatusChange}
+          />
           <ContactList
             contactIds={contactIds}
             getController={getController}
@@ -73,11 +98,14 @@ export function ChatPanel({
             onBack={showBack ? onShowList : undefined}
             onMinimize={onClose}
             onClose={onClose}
+            myStatus={myStatus}
+            onMyStatusChange={onMyStatusChange}
           />
           <MessageList
             messages={state.messages}
             privacyMode={privacyMode}
             onRetry={onRetry}
+            onRevealMessage={onRevealMessage}
             remoteTyping={state.remoteTyping}
             contactName={state.contact.name}
           />
@@ -87,6 +115,9 @@ export function ChatPanel({
             onSend={onSend}
             privacyMode={privacyMode}
             quickReplies={quickReplies}
+            onFocusChange={onComposerFocusChange}
+            emojiTheme={emojiTheme}
+            portalRef={portalRef}
           />
         </>
       )}

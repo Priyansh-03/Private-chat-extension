@@ -12,18 +12,19 @@ const TYPING_INACTIVITY_MS = 3000;
 const REMOTE_TYPING_FAILSAFE_MS = 8000;
 
 function postToBackground(message: OutboundToBackground): void {
-  chrome.runtime.sendMessage(message).catch(() => {
-    // background not reachable (e.g. right after install); safe to ignore
-  });
+  // background not reachable right after install; safe to ignore
+  chrome.runtime.sendMessage(message).catch(() => {});
 }
 
-/**
- * Holds one conversation in runtime memory only — no persistence.
- * Outbound sends go through `sendMessage`; everything the transport layer
- * reports back (ack / delivered / read / failed / incoming / typing /
- * presence) comes in through the `apply*` methods, called by ChatWorkspace
- * as it routes messages from the background service worker.
- */
+function computeUnreadCount(messages: ChatMessage[]): number {
+  return messages.reduce((n, m) => n + (m.direction === "incoming" && !m.seen ? 1 : 0), 0);
+}
+
+export function getUnseenIncoming(messages: ChatMessage[]): ChatMessage[] {
+  return messages.filter((m) => m.direction === "incoming" && !m.seen);
+}
+
+/** One conversation, in-memory only. Outbound via sendMessage; inbound via the apply-prefixed methods and markSeen, called by ChatWorkspace. */
 export class ChatController extends TypedEmitter<ChatBusEvents> {
   private state: ChatState;
   private localTypingActive = false;
@@ -32,7 +33,13 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
 
   constructor(contact: Contact, initialMessages: ChatMessage[] = []) {
     super();
-    this.state = { contact, messages: initialMessages, unreadCount: 0, draft: "", remoteTyping: "idle" };
+    this.state = {
+      contact,
+      messages: initialMessages,
+      unreadCount: computeUnreadCount(initialMessages),
+      draft: "",
+      remoteTyping: "idle",
+    };
   }
 
   getState(): ChatState {
@@ -63,6 +70,7 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
       direction: "outgoing",
       timestamp: Date.now(),
       deliveryState: "sending",
+      seen: true,
     };
     this.setState({ messages: [...this.state.messages, message], draft: "" });
     this.stopTyping();
@@ -128,19 +136,26 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
     this.updateMessage(messageId, { deliveryState: "failed" });
   }
 
-  receiveMessage(text: string, id: string, opts: { markUnread: boolean }): void {
+  receiveMessage(text: string, id: string): void {
     const message: ChatMessage = {
       id,
       text,
       direction: "incoming",
       timestamp: Date.now(),
       deliveryState: "delivered",
+      seen: false,
     };
-    this.setState({
-      messages: [...this.state.messages, message],
-      unreadCount: opts.markUnread ? this.state.unreadCount + 1 : this.state.unreadCount,
-    });
+    const messages = [...this.state.messages, message];
+    this.setState({ messages, unreadCount: computeUnreadCount(messages) });
     this.emit("message:incoming", message);
+  }
+
+  /** One-way: a message can only go unseen -> seen, never back. No-op if already seen or outgoing. */
+  markSeen(messageId: string): void {
+    const message = this.state.messages.find((m) => m.id === messageId);
+    if (!message || message.direction !== "incoming" || message.seen) return;
+    const messages = this.state.messages.map((m) => (m.id === messageId ? { ...m, seen: true } : m));
+    this.setState({ messages, unreadCount: computeUnreadCount(messages) });
   }
 
   applyRemoteTyping(state: TypingState): void {
@@ -149,11 +164,6 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
     if (state === "typing") {
       this.remoteTypingFailsafe = setTimeout(() => this.setState({ remoteTyping: "idle" }), REMOTE_TYPING_FAILSAFE_MS);
     }
-  }
-
-  clearUnread(): void {
-    if (this.state.unreadCount === 0) return;
-    this.setState({ unreadCount: 0 });
   }
 
   setPresence(status: Contact["status"]): void {

@@ -7,11 +7,12 @@ interface MessageListProps {
   messages: ChatMessage[];
   privacyMode: boolean;
   onRetry: (messageId: string) => void;
+  onRevealMessage: (messageId: string) => void;
   remoteTyping: TypingState;
   contactName: string;
 }
 
-export function MessageList({ messages, privacyMode, onRetry, remoteTyping, contactName }: MessageListProps) {
+export function MessageList({ messages, privacyMode, onRetry, onRevealMessage, remoteTyping, contactName }: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -21,7 +22,13 @@ export function MessageList({ messages, privacyMode, onRetry, remoteTyping, cont
   return (
     <div className="pco-message-list">
       {messages.map((message) => (
-        <MessageBubble key={message.id} message={message} privacyMode={privacyMode} onRetry={onRetry} />
+        <MessageBubble
+          key={message.id}
+          message={message}
+          privacyMode={privacyMode}
+          onRetry={onRetry}
+          onRevealMessage={onRevealMessage}
+        />
       ))}
       {remoteTyping === "typing" && <TypingIndicator name={contactName} />}
       <div ref={endRef} />

@@ -17,10 +17,18 @@ export function useSettings(): SettingsApi {
 
   useEffect(() => {
     let cancelled = false;
-    loadSettings().then((loaded) => {
-      if (!cancelled) setSettings(loaded);
+    let receivedLiveUpdate = false;
+
+    // A live update can arrive before the initial load resolves; once one has, it wins.
+    const unsubscribe = onSettingsChanged((next) => {
+      receivedLiveUpdate = true;
+      if (!cancelled) setSettings(next);
     });
-    const unsubscribe = onSettingsChanged(setSettings);
+
+    loadSettings().then((loaded) => {
+      if (!cancelled && !receivedLiveUpdate) setSettings(loaded);
+    });
+
     return () => {
       cancelled = true;
       unsubscribe();

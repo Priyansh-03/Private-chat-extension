@@ -2,19 +2,7 @@ import { DEMO_CONTACTS } from "../lib/demoContacts";
 import type { ConnectionStatus, PresenceStatus } from "../lib/types";
 import type { InboundFromBackground } from "../lib/transportProtocol";
 
-/**
- * Stands in for a real WebSocket + server. Simulates connection lifecycle,
- * server ack / delivery ack / read-receipt timing, a short-lived pending
- * queue with TTL for offline recipients, and occasional demo traffic so the
- * UI is testable without a second real client.
- *
- * Swap this file for a real WebSocket client when a backend exists — the
- * message shapes in lib/transportProtocol.ts are the contract to keep.
- *
- * Caveat: an MV3 service worker can be terminated by the browser when idle,
- * which pauses these timers. A real backend (a persistent server process)
- * would not have this limitation.
- */
+/** Stands in for a real WebSocket + server (ack/delivery/read timing, offline TTL queue, demo traffic) — swap for a real client, keep transportProtocol.ts's shapes. MV3 can idle-kill this worker, pausing these timers; a real server wouldn't have that limit. */
 
 const TTL_MS = 45_000;
 const DEMO_INCOMING_TEXTS = ["You there?", "haha nice", "brb 5 min", "sent!", "sounds good", "what time works?"];

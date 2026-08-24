@@ -8,12 +8,13 @@ interface FabCalloutProps {
 
 export const CALLOUT_SIZE = { width: 190, height: 40 };
 
-/** A generic, content-free nudge toward the FAB — never the sender or message text. */
+/** A generic, content-free nudge toward the FAB — never the sender or message text. Trails toward whichever corner the FAB is on. */
 export function FabCallout({ visible, anchor, onClick }: FabCalloutProps) {
+  const corner = `${anchor.openUp ? "b" : "t"}${anchor.openLeft ? "r" : "l"}`;
   return (
     <button
       type="button"
-      className={`pco-callout${visible ? " pco-callout--visible" : ""}`}
+      className={`pco-callout pco-callout--${corner}${visible ? " pco-callout--visible" : ""}`}
       style={{ left: anchor.left, top: anchor.top }}
       onClick={onClick}
       aria-hidden={!visible}

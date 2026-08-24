@@ -1,13 +1,16 @@
-import type { Contact } from "../lib/types";
+import type { Contact, MyStatusPreset } from "../lib/types";
+import { StatusPicker } from "./StatusPicker";
 
 interface ChatHeaderProps {
   contact: Contact;
   onBack?: () => void;
   onMinimize: () => void;
   onClose: () => void;
+  myStatus: MyStatusPreset;
+  onMyStatusChange: (status: MyStatusPreset) => void;
 }
 
-export function ChatHeader({ contact, onBack, onMinimize, onClose }: ChatHeaderProps) {
+export function ChatHeader({ contact, onBack, onMinimize, onClose, myStatus, onMyStatusChange }: ChatHeaderProps) {
   return (
     <header className="pco-header">
       <div className="pco-header__identity">
@@ -25,6 +28,7 @@ export function ChatHeader({ contact, onBack, onMinimize, onClose }: ChatHeaderP
         </div>
       </div>
       <div className="pco-header__actions">
+        <StatusPicker status={myStatus} onChange={onMyStatusChange} />
         <button type="button" className="pco-header__btn" aria-label="Minimize" onClick={onMinimize}>
           −
         </button>

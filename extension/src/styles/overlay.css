@@ -85,6 +85,13 @@
   }
 }
 
+/* Portal target for anything that must escape a panel's transform+overflow:hidden (e.g. the emoji popover). */
+.pco-portal-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
 /* ---------- FAB ---------- */
 
 .pco-fab {
@@ -123,7 +130,6 @@
   background: rgba(255, 255, 255, 0.85);
 }
 
-.pco-fab--dark .pco-fab__glyph,
 .pco-root[data-theme="dark"] .pco-fab__glyph {
   background: rgba(0, 0, 0, 0.65);
 }
@@ -188,12 +194,124 @@
   }
 }
 
+/* ---------- FAB peek character (decorative, pointer-events: none) ---------- */
+
+.pco-character {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Two-part silhouette echoing the logo's own mark in miniature: a small dark "head" with an accent-colored peek at its corner — not a plain dot. */
+.pco-character__shape {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, 8px);
+  opacity: 0;
+}
+
+.pco-character__shape::before {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 0;
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+  background: var(--pco-fab-bg-open);
+}
+
+.pco-character__shape::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 1px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pco-accent);
+}
+
+.pco-character--idle-peek .pco-character__shape,
+.pco-character--message-peek .pco-character__shape {
+  animation: pco-character-peek 1600ms ease-in-out;
+}
+
+.pco-character--hover-peek .pco-character__shape {
+  animation: pco-character-hover 800ms ease-out;
+}
+
+@keyframes pco-character-peek {
+  0% {
+    transform: translate(-50%, 8px) rotate(0deg);
+    opacity: 0;
+  }
+  15%,
+  40% {
+    transform: translate(-50%, -16px) rotate(0deg);
+    opacity: 1;
+  }
+  55% {
+    transform: translate(-50%, -16px) rotate(-6deg);
+  }
+  70% {
+    transform: translate(-50%, -16px) rotate(6deg);
+  }
+  85% {
+    transform: translate(-50%, -16px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 8px) rotate(0deg);
+    opacity: 0;
+  }
+}
+
+@keyframes pco-character-hover {
+  0% {
+    transform: translate(-50%, 8px);
+    opacity: 0;
+  }
+  30%,
+  70% {
+    transform: translate(-50%, -10px);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 8px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pco-character__shape {
+    animation-name: pco-character-fade;
+    transform: translate(-50%, -10px);
+  }
+}
+
+@keyframes pco-character-fade {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* ---------- FAB callout ---------- */
 
 .pco-callout {
   position: fixed;
-  padding: 9px 14px;
-  border-radius: 10px;
+  padding: 10px 16px;
+  border-radius: 22px;
   border: none;
   background: #18181b;
   color: #fff;
@@ -201,17 +319,79 @@
   font-weight: 500;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
   opacity: 0;
-  transform: scale(0.92);
+  transform: scale(0.9);
   pointer-events: none;
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity 200ms ease, transform 200ms ease;
 }
 
 .pco-callout--visible {
   opacity: 1;
   transform: scale(1);
   pointer-events: auto;
+}
+
+/* Small trailing dots, like a thought bubble, pointing toward whichever FAB corner it opened from. */
+.pco-callout::before,
+.pco-callout::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: #18181b;
+  opacity: 0;
+  transition: opacity 200ms ease 80ms;
+}
+
+.pco-callout--visible::before,
+.pco-callout--visible::after {
+  opacity: 1;
+}
+
+.pco-callout::before {
+  width: 9px;
+  height: 9px;
+}
+
+.pco-callout::after {
+  width: 5px;
+  height: 5px;
+}
+
+.pco-callout--br::before {
+  right: 16px;
+  bottom: -10px;
+}
+.pco-callout--br::after {
+  right: 5px;
+  bottom: -17px;
+}
+
+.pco-callout--bl::before {
+  left: 16px;
+  bottom: -10px;
+}
+.pco-callout--bl::after {
+  left: 5px;
+  bottom: -17px;
+}
+
+.pco-callout--tr::before {
+  right: 16px;
+  top: -10px;
+}
+.pco-callout--tr::after {
+  right: 5px;
+  top: -17px;
+}
+
+.pco-callout--tl::before {
+  left: 16px;
+  top: -10px;
+}
+.pco-callout--tl::after {
+  left: 5px;
+  top: -17px;
 }
 
 /* ---------- Peek (compact card, anchored next to the FAB) ---------- */
@@ -328,7 +508,7 @@
 .pco-header__actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
 }
 
 .pco-header__btn {
@@ -354,6 +534,90 @@
 
 .pco-header__back {
   font-size: 16px;
+}
+
+/* ---------- My status ---------- */
+
+.pco-status-picker {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pco-status-picker__trigger {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: 1px solid var(--pco-border);
+  background: transparent;
+  border-radius: 11px;
+  color: var(--pco-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pco-status-picker__trigger:hover {
+  background: var(--pco-hover-bg);
+}
+
+.pco-status-picker__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.pco-status-picker__dot--available {
+  background: #34c759;
+}
+.pco-status-picker__dot--busy {
+  background: #ff3b30;
+}
+.pco-status-picker__dot--meeting {
+  background: #ff9500;
+}
+.pco-status-picker__dot--dnd {
+  background: #af52de;
+}
+.pco-status-picker__dot--afk {
+  background: #8a8a8e;
+}
+
+.pco-status-picker__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 150px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--pco-panel-bg);
+  border: 1px solid var(--pco-border);
+  box-shadow: var(--pco-shadow);
+  z-index: 1;
+}
+
+.pco-status-picker__option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--pco-text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pco-status-picker__option:hover {
+  background: var(--pco-hover-bg);
+}
+
+.pco-status-picker__option--active {
+  font-weight: 600;
 }
 
 /* ---------- Contact list ---------- */
@@ -597,12 +861,12 @@
   display: flex;
   gap: 6px;
   padding: 8px 10px 0;
-  overflow-x: auto;
 }
 
 .pco-quick-reply {
-  flex-shrink: 0;
-  padding: 5px 10px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 5px 8px;
   border-radius: 12px;
   border: 1px solid var(--pco-border);
   background: transparent;
@@ -610,6 +874,9 @@
   font-size: 11.5px;
   cursor: pointer;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
 }
 
 .pco-quick-reply:hover {
@@ -645,54 +912,22 @@
   background: var(--pco-hover-bg);
 }
 
-.pco-emoji-picker {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  width: 176px;
-  padding: 8px;
+.pco-emoji-popover {
+  position: fixed;
   border-radius: 10px;
-  background: var(--pco-panel-bg);
-  border: 1px solid var(--pco-border);
+  overflow: hidden;
   box-shadow: var(--pco-shadow);
   z-index: 1;
 }
 
-.pco-emoji-picker__grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 2px;
-}
-
-.pco-emoji-picker__item {
-  width: 100%;
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  font-size: 17px;
-  cursor: pointer;
-}
-
-.pco-emoji-picker__item:hover {
-  background: var(--pco-hover-bg);
-}
-
-.pco-emoji-picker__hint {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--pco-border);
-  font-size: 10.5px;
-  color: var(--pco-text-secondary);
-  text-align: center;
+.pco-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
 }
 
 .pco-input {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   border: none;
   outline: none;
   background: transparent;
@@ -703,6 +938,23 @@
 
 .pco-input::placeholder {
   color: var(--pco-text-secondary);
+}
+
+.pco-input-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: pre;
+  font-size: 13px;
+  padding: 7px 6px;
+  color: var(--pco-text);
+  pointer-events: none;
+}
+
+.pco-input-overlay__over {
+  color: #ff8a8a;
 }
 
 .pco-send-btn {
@@ -753,12 +1005,37 @@
   gap: 2px;
 }
 
-.pco-peek .pco-bubble-row {
+.pco-peek__messages-wrap {
+  position: relative;
   flex: 1;
   min-height: 0;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.pco-peek__messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 8px 12px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pco-peek__more-pill {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--pco-accent);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
 }
 
 .pco-peek__empty {

@@ -36,6 +36,7 @@ async function copyPopupAssets() {
   await mkdir("dist", { recursive: true });
   await copyFile("src/popup/popup.html", "dist/popup.html");
   await copyFile("src/popup/popup.css", "dist/popup.css");
+  await copyFile("src/assets/logo.svg", "dist/logo.svg");
 }
 
 if (watch) {

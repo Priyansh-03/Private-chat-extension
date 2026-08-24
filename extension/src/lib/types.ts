@@ -17,14 +17,7 @@ export interface Contact {
 
 export type MessageDirection = "incoming" | "outgoing";
 
-/**
- * sending           — not yet confirmed by the server (clock icon)
- * server_accepted   — server received it, recipient not confirmed yet (single tick)
- * pending_delivery  — server queued it because the recipient is offline (still single tick)
- * delivered         — recipient's extension acknowledged receipt (double tick, gray)
- * read              — recipient intentionally revealed the message (double tick, blue)
- * failed            — server was unreachable and retries were exhausted
- */
+/** sending -> server_accepted/pending_delivery (1 tick) -> delivered (2 gray) -> read (2 blue), or failed */
 export type MessageDeliveryState =
   | "sending"
   | "server_accepted"
@@ -40,6 +33,8 @@ export interface ChatMessage {
   timestamp: number;
   deliveryState: MessageDeliveryState;
   readAt?: number;
+  /** incoming: has the user hovered/revealed it locally? outgoing: always true, unused */
+  seen: boolean;
 }
 
 export type TypingState = "idle" | "typing";
@@ -61,11 +56,15 @@ export type ChatBusEvents = {
 
 export type ThemeMode = "system" | "light" | "dark" | "transparent";
 
-export interface ShortcutMap {
-  toggleHide: string;
-  openPeek: string;
-  instantHide: string;
-}
+export type MyStatusPreset = "available" | "busy" | "meeting" | "dnd" | "afk";
+
+export const MY_STATUS_LABELS: Record<MyStatusPreset, string> = {
+  available: "Available",
+  busy: "Busy",
+  meeting: "In a meeting",
+  dnd: "Do not disturb",
+  afk: "AFK",
+};
 
 export interface Settings {
   extensionEnabled: boolean;
@@ -75,7 +74,7 @@ export interface Settings {
   sound: boolean;
   showStatus: boolean;
   quickReplies: string[];
-  shortcuts: ShortcutMap;
+  myStatus: MyStatusPreset;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -86,11 +85,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   showStatus: true,
   quickReplies: ["Hi", "In a meeting", "TTYL", "See you"],
-  shortcuts: {
-    toggleHide: "Alt+Shift+C",
-    openPeek: "Alt+Shift+P",
-    instantHide: "Escape",
-  },
+  myStatus: "available",
 };
 
 export type DisclosureMode = "hidden" | "peek" | "full";

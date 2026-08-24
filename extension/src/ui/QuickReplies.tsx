@@ -8,7 +8,7 @@ export function QuickReplies({ replies, onSelect }: QuickRepliesProps) {
   return (
     <div className="pco-quick-replies">
       {replies.map((reply) => (
-        <button key={reply} type="button" className="pco-quick-reply" onClick={() => onSelect(reply)}>
+        <button key={reply} type="button" className="pco-quick-reply" title={reply} onClick={() => onSelect(reply)}>
           {reply}
         </button>
       ))}

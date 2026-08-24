@@ -10,11 +10,7 @@ export interface DisclosureApi {
   closeInstant: () => void;
 }
 
-/**
- * Deliberate open/close only. Left-click on the FAB drives openPeek/close,
- * right-click drives openFull/close (see Fab.tsx + Overlay.tsx). Escape is
- * always an instant hide with no transition; every other close animates.
- */
+/** Deliberate open/close only (left/right FAB click, see Overlay.tsx). Escape is instant, everything else animates. */
 export function useChatDisclosure(containerRef: RefObject<HTMLElement | null>): DisclosureApi {
   const [mode, setMode] = useState<DisclosureMode>("hidden");
   const [instant, setInstant] = useState(false);

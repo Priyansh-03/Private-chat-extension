@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MAX_QUICK_REPLIES, QUICK_REPLY_MAX_CHARS } from "../lib/limits";
 
 interface QuickReplyEditorProps {
   replies: string[];
@@ -19,7 +20,7 @@ export function QuickReplyEditor({ replies, onChange }: QuickReplyEditorProps) {
 
   const update = (index: number, text: string) => {
     const next = replies.slice();
-    next[index] = text;
+    next[index] = text.slice(0, QUICK_REPLY_MAX_CHARS);
     onChange(next);
   };
 
@@ -27,10 +28,12 @@ export function QuickReplyEditor({ replies, onChange }: QuickReplyEditorProps) {
 
   const add = () => {
     const trimmed = draft.trim();
-    if (!trimmed) return;
+    if (!trimmed || replies.length >= MAX_QUICK_REPLIES) return;
     onChange([...replies, trimmed]);
     setDraft("");
   };
+
+  const atLimit = replies.length >= MAX_QUICK_REPLIES;
 
   return (
     <div className="pcp-row pcp-row--stack">
@@ -46,9 +49,13 @@ export function QuickReplyEditor({ replies, onChange }: QuickReplyEditorProps) {
             <div key={index} className="pcp-editor__item">
               <input
                 value={reply}
+                maxLength={QUICK_REPLY_MAX_CHARS}
                 onChange={(event) => update(index, event.target.value)}
                 className="pcp-editor__input"
               />
+              <span className="pcp-counter">
+                {reply.length}/{QUICK_REPLY_MAX_CHARS}
+              </span>
               <button type="button" className="pcp-icon" onClick={() => move(index, -1)} disabled={index === 0} aria-label="Move up">
                 ↑
               </button>
@@ -66,20 +73,28 @@ export function QuickReplyEditor({ replies, onChange }: QuickReplyEditorProps) {
               </button>
             </div>
           ))}
-          <div className="pcp-editor__item">
-            <input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="New quick reply"
-              className="pcp-editor__input"
-              onKeyDown={(event) => {
-                if (event.key === "Enter") add();
-              }}
-            />
-            <button type="button" className="pcp-btn" onClick={add}>
-              Add
-            </button>
-          </div>
+          {atLimit ? (
+            <p className="pcp-hint">Maximum {MAX_QUICK_REPLIES} quick replies.</p>
+          ) : (
+            <div className="pcp-editor__item">
+              <input
+                value={draft}
+                maxLength={QUICK_REPLY_MAX_CHARS}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder="New quick reply"
+                className="pcp-editor__input"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") add();
+                }}
+              />
+              <span className="pcp-counter">
+                {draft.length}/{QUICK_REPLY_MAX_CHARS}
+              </span>
+              <button type="button" className="pcp-btn" onClick={add}>
+                Add
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -14,14 +14,11 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-/**
- * Positions the panel adjacent to the FAB, flipping toward whichever
- * quadrant of the viewport has room, then clamps it fully on-screen.
- */
 export function transformOriginFor(anchor: Anchor): string {
   return `${anchor.openLeft ? "right" : "left"} ${anchor.openUp ? "bottom" : "top"}`;
 }
 
+/** Positions the panel adjacent to the FAB, flipping toward whichever quadrant has room, then clamps it on-screen. */
 export function computeAnchor(fabRect: DOMRect, size: Size, gap = 14): Anchor {
   const vw = window.innerWidth;
   const vh = window.innerHeight;

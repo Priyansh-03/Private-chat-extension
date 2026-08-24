@@ -15,21 +15,16 @@ function MaskedWords({ text }: { text: string }) {
 interface PrivacyTextProps {
   text: string;
   enabled: boolean;
+  /** One-way "mark seen" latch, fired on hover. Not used for the visual mask/reveal swap (that's pure CSS :hover). */
+  onReveal?: () => void;
 }
 
-/**
- * Both the mask and the real text are always in the DOM; CSS :hover swaps
- * which one is visible. This — rather than onMouseEnter/onMouseLeave plus a
- * React state swap — is what keeps reveal state from getting stuck: :hover
- * is re-evaluated by the browser against the live cursor position every
- * frame, so it can't miss a "mouse left" transition the way a discrete
- * event can when the swap itself changes the hovered element's layout.
- */
-export function PrivacyText({ text, enabled }: PrivacyTextProps) {
-  if (!enabled) return <>{text}</>;
+/** Mask and real text both stay in the DOM; CSS :hover swaps which is visible — avoids a JS-state hover bug fixed earlier. */
+export function PrivacyText({ text, enabled, onReveal }: PrivacyTextProps) {
+  if (!enabled) return <span onMouseEnter={onReveal}>{text}</span>;
 
   return (
-    <span className="pco-privacy-text">
+    <span className="pco-privacy-text" onMouseEnter={onReveal}>
       <span className="pco-privacy-text__mask">
         <MaskedWords text={text} />
       </span>

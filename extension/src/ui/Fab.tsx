@@ -12,10 +12,24 @@ interface FabProps {
   onPointerDown: (event: React.PointerEvent) => void;
   onLeftClick: () => void;
   onRightClick: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 export const Fab = forwardRef<HTMLButtonElement, FabProps>(function Fab(
-  { isOpen, connectionStatus, unreadCount, pulseKey, quietMode, position, onPointerDown, onLeftClick, onRightClick },
+  {
+    isOpen,
+    connectionStatus,
+    unreadCount,
+    pulseKey,
+    quietMode,
+    position,
+    onPointerDown,
+    onLeftClick,
+    onRightClick,
+    onMouseEnter,
+    onMouseLeave,
+  },
   ref,
 ) {
   return (
@@ -26,6 +40,8 @@ export const Fab = forwardRef<HTMLButtonElement, FabProps>(function Fab(
       style={{ left: position.x, top: position.y, width: FAB_SIZE, height: FAB_SIZE }}
       onPointerDown={onPointerDown}
       onClick={onLeftClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       onContextMenu={(event) => {
         event.preventDefault();
         onRightClick();

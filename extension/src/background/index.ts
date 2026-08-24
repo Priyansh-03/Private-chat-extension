@@ -14,7 +14,7 @@ async function syncTransportToSettings(): Promise<void> {
 void syncTransportToSettings();
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName === "sync" && changes.pco_settings) {
+  if (areaName === "local" && changes.pco_settings) {
     void syncTransportToSettings();
   }
 });

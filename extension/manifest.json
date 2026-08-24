@@ -4,9 +4,21 @@
   "version": "0.2.0",
   "description": "A hidden, privacy-first 1-to-1 chat layer that sits on top of any webpage.",
   "permissions": ["storage"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "action": {
     "default_title": "Private Chat",
-    "default_popup": "dist/popup.html"
+    "default_popup": "dist/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "dist/background.js"

@@ -3,7 +3,6 @@ import { loadSettings, replaceSettings } from "../lib/settingsStore";
 import { DEFAULT_SETTINGS, type Settings, type ThemeMode } from "../lib/types";
 import { Toggle } from "./Toggle";
 import { QuickReplyEditor } from "./QuickReplyEditor";
-import { ShortcutEditor } from "./ShortcutEditor";
 
 const THEMES: { value: ThemeMode; label: string }[] = [
   { value: "system", label: "System" },
@@ -14,16 +13,21 @@ const THEMES: { value: ThemeMode; label: string }[] = [
 
 export function SettingsPopup() {
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [saveError, setSaveError] = useState(false);
 
   useEffect(() => {
     loadSettings().then(setSettings);
   }, []);
 
   const update = (patch: Partial<Settings>) => {
+    setSaveError(false);
     setSettings((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...patch };
-      void replaceSettings(next);
+      replaceSettings(next).catch(() => {
+        setSettings(prev);
+        setSaveError(true);
+      });
       return next;
     });
   };
@@ -32,7 +36,12 @@ export function SettingsPopup() {
 
   return (
     <div className="pcp-root">
-      <div className="pcp-title">Private Chat</div>
+      <div className="pcp-title">
+        <img src="logo.svg" alt="" className="pcp-logo" />
+        Private Chat
+      </div>
+
+      {saveError && <div className="pcp-error">Couldn&apos;t save — try again.</div>}
 
       <div className="pcp-row">
         <span>Extension</span>
@@ -75,8 +84,6 @@ export function SettingsPopup() {
       </div>
 
       <QuickReplyEditor replies={settings.quickReplies} onChange={(quickReplies) => update({ quickReplies })} />
-
-      <ShortcutEditor shortcuts={settings.shortcuts} onChange={(shortcuts) => update({ shortcuts })} />
 
       <button
         type="button"

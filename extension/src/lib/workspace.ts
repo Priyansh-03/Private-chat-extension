@@ -10,11 +10,7 @@ export interface ContactSeed {
 
 type WorkspaceEvents = { "active:changed": string };
 
-/**
- * Owns every conversation for the tab and routes inbound background-service-
- * worker events to the right ChatController by contactId. There is exactly
- * one workspace per content-script instance (per tab).
- */
+/** Owns every conversation for the tab; routes inbound background events to the right ChatController by contactId. */
 export class ChatWorkspace extends TypedEmitter<WorkspaceEvents> {
   private controllers = new Map<string, ChatController>();
   private order: string[] = [];
@@ -75,12 +71,7 @@ export class ChatWorkspace extends TypedEmitter<WorkspaceEvents> {
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }
 
-  /**
-   * Active contact changes only through explicit user action (setActive /
-   * handleSelectContact) — never automatically because a message arrived.
-   * "Left-click opens whoever I was last talking to" means last talking to,
-   * not last to message me.
-   */
+  /** Active contact only ever changes via explicit setActive — never automatically on an incoming message. */
   route(event: InboundFromBackground): void {
     switch (event.type) {
       case "chat:ack":
@@ -98,7 +89,7 @@ export class ChatWorkspace extends TypedEmitter<WorkspaceEvents> {
       case "chat:incoming": {
         const controller = this.controllers.get(event.contactId);
         if (!controller) break;
-        controller.receiveMessage(event.message.text, event.message.id, { markUnread: true });
+        controller.receiveMessage(event.message.text, event.message.id);
         break;
       }
       case "chat:remote-typing":

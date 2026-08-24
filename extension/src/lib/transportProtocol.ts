@@ -1,18 +1,12 @@
 import type { ConnectionStatus, PresenceStatus, TypingState } from "./types";
 
-/**
- * Messages the content script sends to the background service worker.
- * Stand-in for what would go out over a real WebSocket.
- */
+/** Content script -> background, stand-in for what would go out over a real WebSocket. */
 export type OutboundToBackground =
   | { type: "chat:outgoing"; contactId: string; messageId: string; text: string }
   | { type: "chat:typing"; contactId: string; state: TypingState }
   | { type: "chat:request-status" };
 
-/**
- * Messages the background service worker pushes to every tab's content script.
- * Stand-in for what would arrive as frames over a real WebSocket.
- */
+/** Background -> every tab's content script, stand-in for real WebSocket frames. */
 export type InboundFromBackground =
   | { type: "chat:ack"; contactId: string; messageId: string }
   | { type: "chat:delivered"; contactId: string; messageId: string }
