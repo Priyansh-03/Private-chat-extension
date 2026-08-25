@@ -24,13 +24,15 @@
   --pco-bubble-out-bg: #18181b;
   --pco-bubble-out-text: #ffffff;
   --pco-accent: #2f6fed;
-  --pco-fab-bg: #3a3a3e;
-  --pco-fab-bg-open: #18181b;
   --pco-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
   --pco-backdrop: none;
   --pco-hover-bg: #f2f2f3;
 
-  /* Mascot palette — fixed across themes, this is the character's own coloring, not UI chrome. */
+  /* FAB and mascot palette — fixed across themes; this is the widget's own branding, not UI
+     chrome, so it never flips to a near-white shade the way the panel/bubble colors do. */
+  --pco-fab-bg: #1e40af;
+  --pco-fab-bg-open: #172554;
+  --pco-fab-bg-unread: #ff8a5c;
   --pco-char-skin: #f2b985;
   --pco-char-shirt: #ff8a5c;
   --pco-char-cheek: #ff9d81;
@@ -47,8 +49,6 @@
   --pco-bubble-out-bg: #2f6fed;
   --pco-bubble-out-text: #ffffff;
   --pco-accent: #6d9bff;
-  --pco-fab-bg: #d6d6d9;
-  --pco-fab-bg-open: #f2f2f3;
   --pco-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   --pco-hover-bg: #2c2c2e;
 }
@@ -64,8 +64,6 @@
   --pco-bubble-out-bg: rgba(47, 111, 237, 0.85);
   --pco-bubble-out-text: #ffffff;
   --pco-accent: #8ab0ff;
-  --pco-fab-bg: rgba(30, 30, 33, 0.7);
-  --pco-fab-bg-open: rgba(10, 10, 12, 0.8);
   --pco-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   --pco-backdrop: blur(14px);
   --pco-hover-bg: rgba(255, 255, 255, 0.1);
@@ -83,8 +81,6 @@
     --pco-bubble-out-bg: #2f6fed;
     --pco-bubble-out-text: #ffffff;
     --pco-accent: #6d9bff;
-    --pco-fab-bg: #d6d6d9;
-    --pco-fab-bg-open: #f2f2f3;
     --pco-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
     --pco-hover-bg: #2c2c2e;
   }
@@ -199,20 +195,22 @@
   }
 }
 
-/* Ambient glow while there's unread mail waiting — distinct from pco-fab__pulse's one-shot
-   arrival ring, this keeps going until the FAB is opened or Quiet Mode is on. */
+/* Unread mail waiting: the FAB itself switches to the alert color, with an ambient glow on top —
+   distinct from pco-fab__pulse's one-shot arrival ring, this keeps going until the FAB is opened
+   or Quiet Mode is on. */
 .pco-fab--glow {
+  background: var(--pco-fab-bg-unread);
   animation: pco-fab-glow 2200ms ease-in-out infinite;
 }
 
 @keyframes pco-fab-glow {
   0%,
   100% {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), 0 0 0 0 var(--pco-accent);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), 0 0 0 0 var(--pco-fab-bg-unread);
     transform: scale(1);
   }
   50% {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), 0 0 16px 4px var(--pco-accent);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), 0 0 16px 4px var(--pco-fab-bg-unread);
     transform: scale(1.04);
   }
 }
@@ -220,7 +218,7 @@
 @media (prefers-reduced-motion: reduce) {
   .pco-fab--glow {
     animation: none;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), 0 0 10px 2px var(--pco-accent);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), 0 0 10px 2px var(--pco-fab-bg-unread);
   }
 }
 
@@ -340,7 +338,7 @@
   background: var(--pco-char-shirt);
   transform: translate(-50%, 16px);
   opacity: 0;
-  --pco-char-bounce-y: -16px;
+  --pco-char-bounce-y: -4px;
 }
 
 .pco-character__hand {
@@ -427,17 +425,21 @@
 }
 
 .pco-character--playful .pco-character__body {
-  transform: translate(-50%, -16px);
+  /* Mostly tucked behind the FAB (only a small cap above it) — the hands, not the body, are what
+     read as "holding on". */
+  transform: translate(-50%, -4px);
   opacity: 1;
 }
 
 .pco-character--playful .pco-character__hand--l {
-  transform: translate(calc(-50% - 20px), -2px) rotate(-10deg);
+  /* Positive Y so the hands sit on/over the FAB's rim rather than floating just above it — this
+     layer paints after the FAB (see FabCharacter.tsx), so the overlap renders correctly on top. */
+  transform: translate(calc(-50% - 20px), 2px) rotate(-10deg);
   opacity: 1;
 }
 
 .pco-character--playful .pco-character__hand--r {
-  transform: translate(calc(-50% + 20px), -2px) rotate(10deg);
+  transform: translate(calc(-50% + 20px), 2px) rotate(10deg);
   opacity: 1;
 }
 
@@ -477,21 +479,29 @@
     opacity: 1;
   }
   100% {
-    transform: translate(-50%, -16px);
+    transform: translate(-50%, -4px);
     opacity: 1;
   }
 }
 
+/* Stays invisible while still low/behind the FAB (this layer paints after the FAB in the DOM, so
+   opacity is the only way to fake "coming from behind" — see FabCharacter.tsx) and only reveals
+   itself once it's nearly reached the rim, so it reads as popping up on top rather than fading in
+   mid-air in front of the button. */
 @keyframes pco-char-emerge-hand-l {
   0% {
     transform: translate(calc(-50% - 14px), 20px) rotate(0deg);
     opacity: 0;
   }
-  50% {
+  60% {
+    transform: translate(calc(-50% - 18px), 8px) rotate(-4deg);
+    opacity: 0;
+  }
+  80% {
     opacity: 1;
   }
   100% {
-    transform: translate(calc(-50% - 20px), -2px) rotate(-10deg);
+    transform: translate(calc(-50% - 20px), 2px) rotate(-10deg);
     opacity: 1;
   }
 }
@@ -501,11 +511,15 @@
     transform: translate(calc(-50% + 14px), 20px) rotate(0deg);
     opacity: 0;
   }
-  50% {
+  60% {
+    transform: translate(calc(-50% + 18px), 8px) rotate(4deg);
+    opacity: 0;
+  }
+  80% {
     opacity: 1;
   }
   100% {
-    transform: translate(calc(-50% + 20px), -2px) rotate(10deg);
+    transform: translate(calc(-50% + 20px), 2px) rotate(10deg);
     opacity: 1;
   }
 }
@@ -535,16 +549,16 @@
 @keyframes pco-char-wave {
   0%,
   100% {
-    transform: translate(calc(-50% + 20px), -2px) rotate(10deg);
+    transform: translate(calc(-50% + 20px), 2px) rotate(10deg);
   }
   25% {
-    transform: translate(calc(-50% + 20px), -6px) rotate(32deg);
+    transform: translate(calc(-50% + 20px), -2px) rotate(32deg);
   }
   50% {
-    transform: translate(calc(-50% + 20px), -6px) rotate(6deg);
+    transform: translate(calc(-50% + 20px), -2px) rotate(6deg);
   }
   75% {
-    transform: translate(calc(-50% + 20px), -6px) rotate(32deg);
+    transform: translate(calc(-50% + 20px), -2px) rotate(32deg);
   }
 }
 
@@ -573,18 +587,20 @@
 
 /* ---------- FAB callout ---------- */
 
+/* A classic comic thought bubble: white cloud, dark outline, trailing dots — always this look
+   regardless of app theme, since it's an illustration element rather than UI chrome. */
 .pco-callout {
   position: fixed;
   padding: 10px 16px;
-  border-radius: 22px;
-  border: none;
-  background: #18181b;
-  color: #fff;
+  border-radius: 60% 70% 65% 75% / 70% 60% 75% 65%;
+  border: 2px solid #18181b;
+  background: #ffffff;
+  color: #18181b;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
   opacity: 0;
   transform: scale(0.9);
   pointer-events: none;
@@ -603,7 +619,8 @@
   content: "";
   position: absolute;
   border-radius: 50%;
-  background: #18181b;
+  background: #ffffff;
+  border: 2px solid #18181b;
   opacity: 0;
   transition: opacity 200ms ease 80ms;
 }
