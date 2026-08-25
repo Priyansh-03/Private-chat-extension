@@ -1,6 +1,42 @@
+import { OVERLAY_HOST_ID } from "../lib/constants";
 import { loadSettings } from "../lib/settingsStore";
 import type { OutboundToBackground } from "../lib/transportProtocol";
 import { mockTransport } from "./mockTransport";
+
+/**
+ * Content scripts only auto-run on new page loads after the extension starts, so tabs already
+ * open at install/reload time are otherwise stuck without the FAB until manually refreshed. This
+ * pushes it into every currently-open tab instead. Any host element left behind by a now-dead
+ * script instance from before the reload is removed first, since mount() would otherwise see it
+ * and skip re-mounting. Restricted pages (chrome://, the Web Store, PDF viewer, etc.) just reject
+ * the injection — there's nothing to do about those, so failures are silently skipped.
+ */
+async function injectIntoExistingTabs(): Promise<void> {
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(
+    tabs
+      .filter((tab): tab is chrome.tabs.Tab & { id: number } => tab.id !== undefined)
+      .map(async (tab) => {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: (hostId: string) => document.getElementById(hostId)?.remove(),
+            args: [OVERLAY_HOST_ID],
+          });
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["dist/content.js"],
+          });
+        } catch {
+          // restricted page; nothing to do
+        }
+      }),
+  );
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  void injectIntoExistingTabs();
+});
 
 async function syncTransportToSettings(): Promise<void> {
   const settings = await loadSettings();

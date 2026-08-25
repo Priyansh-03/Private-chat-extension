@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { createDemoSeeds } from "../lib/devSeed";
 import { getUnseenIncoming } from "../lib/chatEventBus";
-import { playIncomingChime } from "../lib/sound";
+import { playNotificationSound, primeAudio } from "../lib/sound";
 import { replaceSettings } from "../lib/settingsStore";
 import type { ChatWorkspace as ChatWorkspaceType } from "../lib/workspace";
 import { ChatWorkspace } from "../lib/workspace";
@@ -92,14 +92,14 @@ export function Overlay() {
         if (conversationVisible) return;
         setPulseKey((key) => key + 1);
         character.triggerMessage();
-        if (settings.sound && !settings.quietMode) playIncomingChime();
+        if (settings.sound && !settings.quietMode) playNotificationSound(settings.notificationSound);
         if (!settings.quietMode) {
           setCalloutVisible(true);
           if (calloutTimer.current) clearTimeout(calloutTimer.current);
           calloutTimer.current = setTimeout(() => setCalloutVisible(false), 4500);
         }
       }),
-    [workspace, settings.sound, settings.quietMode, character.triggerMessage],
+    [workspace, settings.sound, settings.notificationSound, settings.quietMode, character.triggerMessage],
   );
 
   // Any panel opening dismisses the callout.
@@ -156,6 +156,11 @@ export function Overlay() {
   const handleSelectContact = (id: string) => {
     workspace.setActive(id);
     setView("conversation");
+  };
+
+  const handleFabPointerDown = (event: React.PointerEvent) => {
+    primeAudio();
+    draggable.onPointerDown(event);
   };
 
   const handleLeftClick = () => {
@@ -229,7 +234,7 @@ export function Overlay() {
         pulseKey={pulseKey}
         quietMode={settings.quietMode}
         position={draggable.position}
-        onPointerDown={draggable.onPointerDown}
+        onPointerDown={handleFabPointerDown}
         onLeftClick={handleLeftClick}
         onRightClick={handleRightClick}
         onMouseEnter={handleFabEnter}

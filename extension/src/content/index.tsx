@@ -1,15 +1,14 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { Overlay } from "../ui/Overlay";
+import { OVERLAY_HOST_ID } from "../lib/constants";
 import overlayCss from "../styles/overlay.css";
 
-const HOST_ID = "private-chat-overlay-host";
-
 function mount(): void {
-  if (document.getElementById(HOST_ID)) return;
+  if (document.getElementById(OVERLAY_HOST_ID)) return;
 
   const host = document.createElement("div");
-  host.id = HOST_ID;
+  host.id = OVERLAY_HOST_ID;
   host.style.position = "fixed";
   host.style.inset = "0";
   host.style.width = "0";

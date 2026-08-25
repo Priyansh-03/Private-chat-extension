@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { loadSettings, replaceSettings } from "../lib/settingsStore";
-import { DEFAULT_SETTINGS, type Settings, type ThemeMode } from "../lib/types";
+import { playNotificationSound } from "../lib/sound";
+import { DEFAULT_SETTINGS, type NotificationSound, type Settings, type ThemeMode } from "../lib/types";
 import { Toggle } from "./Toggle";
 import { QuickReplyEditor } from "./QuickReplyEditor";
 
@@ -9,6 +10,12 @@ const THEMES: { value: ThemeMode; label: string }[] = [
   { value: "light", label: "Light" },
   { value: "dark", label: "Dark" },
   { value: "transparent", label: "Transparent" },
+];
+
+const NOTIFICATION_SOUNDS: { value: NotificationSound; label: string }[] = [
+  { value: "chime", label: "Chime" },
+  { value: "pop", label: "Pop" },
+  { value: "ding", label: "Ding" },
 ];
 
 export function SettingsPopup() {
@@ -77,6 +84,33 @@ export function SettingsPopup() {
         <span>Sound</span>
         <Toggle checked={settings.sound} onChange={(v) => update({ sound: v })} label="Sound" />
       </div>
+
+      {settings.sound && (
+        <div className="pcp-row">
+          <span>Notification Sound</span>
+          <div className="pcp-sound-picker">
+            <select
+              className="pcp-select"
+              value={settings.notificationSound}
+              onChange={(event) => update({ notificationSound: event.target.value as NotificationSound })}
+            >
+              {NOTIFICATION_SOUNDS.map((sound) => (
+                <option key={sound.value} value={sound.value}>
+                  {sound.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="pcp-btn"
+              aria-label="Preview notification sound"
+              onClick={() => playNotificationSound(settings.notificationSound)}
+            >
+              ▶
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="pcp-row">
         <span>Show Status</span>

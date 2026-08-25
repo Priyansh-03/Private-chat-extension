@@ -56,6 +56,8 @@ export type ChatBusEvents = {
 
 export type ThemeMode = "system" | "light" | "dark" | "transparent";
 
+export type NotificationSound = "chime" | "pop" | "ding";
+
 export type MyStatusPreset = "available" | "busy" | "meeting" | "dnd" | "afk";
 
 export const MY_STATUS_LABELS: Record<MyStatusPreset, string> = {
@@ -72,6 +74,7 @@ export interface Settings {
   privacyMode: boolean;
   theme: ThemeMode;
   sound: boolean;
+  notificationSound: NotificationSound;
   showStatus: boolean;
   quickReplies: string[];
   myStatus: MyStatusPreset;
@@ -83,6 +86,7 @@ export const DEFAULT_SETTINGS: Settings = {
   privacyMode: true,
   theme: "system",
   sound: true,
+  notificationSound: "chime",
   showStatus: true,
   quickReplies: ["Hi", "In a meeting", "TTYL", "See you"],
   myStatus: "available",
