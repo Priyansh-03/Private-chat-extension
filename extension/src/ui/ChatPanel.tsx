@@ -78,6 +78,7 @@ export function ChatPanel({
         <>
           <ChatHeader
             contact={state.contact}
+            title="Contacts"
             onMinimize={onClose}
             onClose={onClose}
             myStatus={myStatus}

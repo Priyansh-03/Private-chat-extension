@@ -36,7 +36,9 @@ export const Fab = forwardRef<HTMLButtonElement, FabProps>(function Fab(
     <button
       ref={ref}
       type="button"
-      className={`pco-fab pco-fab--${connectionStatus}${isOpen ? " pco-fab--open" : ""}`}
+      className={`pco-fab pco-fab--${connectionStatus}${isOpen ? " pco-fab--open" : ""}${
+        unreadCount > 0 && !isOpen && !quietMode ? " pco-fab--glow" : ""
+      }`}
       style={{ left: position.x, top: position.y, width: FAB_SIZE, height: FAB_SIZE }}
       onPointerDown={onPointerDown}
       onClick={onLeftClick}

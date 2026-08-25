@@ -1,40 +1,81 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type FabCharacterVariant = "idle-peek" | "message-peek" | "hover-peek";
-type FabCharacterState = "idle" | "animating" | "cooldown";
+export type FabCharacterPhase = "hidden" | "emerging" | "playful" | "hiding";
+export type PlayfulKind = "idle" | "wave";
 
 const IDLE_MIN_MS = 15000;
 const IDLE_MAX_MS = 30000;
-const PEEK_MS = 1600;
-const HOVER_PEEK_MS = 800;
-const COOLDOWN_MS = 1500;
-const REDUCED_MESSAGE_MS = 500;
+const EMERGE_MS = 550;
+const PLAYFUL_IDLE_MS = 1000;
+const PLAYFUL_WAVE_MS = 1100;
+const HIDE_MS = 500;
+const PEEK_MS = 700;
 
 function getReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 export interface FabCharacterApi {
-  variant: FabCharacterVariant | null;
+  phase: FabCharacterPhase;
+  playfulKind: PlayfulKind | null;
+  peeking: boolean;
   animationKey: number;
   triggerMessage: () => void;
   triggerHover: () => void;
 }
 
-/** idle -> animating -> cooldown -> idle. A new message always interrupts; hover only starts from idle. */
+/**
+ * hidden -> emerging -> playful -> hiding -> hidden. A new message always interrupts the current
+ * cycle and plays a wave; hover only plays a brief eye-dart peek, and only while fully hidden.
+ */
 export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
-  const [variant, setVariant] = useState<FabCharacterVariant | null>(null);
+  const [phase, setPhase] = useState<FabCharacterPhase>("hidden");
+  const [playfulKind, setPlayfulKind] = useState<PlayfulKind | null>(null);
+  const [peeking, setPeeking] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(getReducedMotion);
-  const stateRef = useRef<FabCharacterState>("idle");
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const clearTimers = useCallback(() => {
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
+  const phaseRef = useRef<FabCharacterPhase>("hidden");
+  const cycleTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const peekTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const clearCycleTimers = useCallback(() => {
+    cycleTimersRef.current.forEach(clearTimeout);
+    cycleTimersRef.current = [];
   }, []);
 
-  useEffect(() => clearTimers, [clearTimers]);
+  const runCycle = useCallback(
+    (kind: PlayfulKind) => {
+      clearCycleTimers();
+      phaseRef.current = "emerging";
+      setPhase("emerging");
+      setPlayfulKind(kind);
+      setAnimationKey((key) => key + 1);
+
+      const toPlayful = setTimeout(() => {
+        phaseRef.current = "playful";
+        setPhase("playful");
+
+        const toHiding = setTimeout(
+          () => {
+            phaseRef.current = "hiding";
+            setPhase("hiding");
+
+            const toHidden = setTimeout(() => {
+              phaseRef.current = "hidden";
+              setPhase("hidden");
+              setPlayfulKind(null);
+            }, HIDE_MS);
+            cycleTimersRef.current.push(toHidden);
+          },
+          kind === "wave" ? PLAYFUL_WAVE_MS : PLAYFUL_IDLE_MS,
+        );
+        cycleTimersRef.current.push(toHiding);
+      }, EMERGE_MS);
+      cycleTimersRef.current.push(toPlayful);
+    },
+    [clearCycleTimers],
+  );
 
   useEffect(() => {
     const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -43,33 +84,41 @@ export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  const play = useCallback(
-    (next: FabCharacterVariant, durationMs: number) => {
-      clearTimers();
-      stateRef.current = "animating";
-      setVariant(next);
-      setAnimationKey((key) => key + 1);
-      const hideTimer = setTimeout(() => {
-        setVariant(null);
-        stateRef.current = "cooldown";
-        const settleTimer = setTimeout(() => {
-          stateRef.current = "idle";
-        }, COOLDOWN_MS);
-        timersRef.current.push(settleTimer);
-      }, durationMs);
-      timersRef.current.push(hideTimer);
+  // Reduced motion always wins: snap back to a static hidden pose and drop any in-flight cycle/peek.
+  useEffect(() => {
+    if (!reducedMotion) return;
+    clearCycleTimers();
+    if (peekTimerRef.current) {
+      clearTimeout(peekTimerRef.current);
+      peekTimerRef.current = undefined;
+    }
+    phaseRef.current = "hidden";
+    setPhase("hidden");
+    setPlayfulKind(null);
+    setPeeking(false);
+  }, [reducedMotion, clearCycleTimers]);
+
+  useEffect(
+    () => () => {
+      clearCycleTimers();
+      if (peekTimerRef.current) clearTimeout(peekTimerRef.current);
     },
-    [clearTimers],
+    [clearCycleTimers],
   );
 
   const triggerMessage = useCallback(() => {
-    play("message-peek", reducedMotion ? REDUCED_MESSAGE_MS : PEEK_MS);
-  }, [play, reducedMotion]);
+    if (reducedMotion) return;
+    runCycle("wave");
+  }, [reducedMotion, runCycle]);
 
   const triggerHover = useCallback(() => {
-    if (reducedMotion || stateRef.current !== "idle") return;
-    play("hover-peek", HOVER_PEEK_MS);
-  }, [play, reducedMotion]);
+    if (reducedMotion || phaseRef.current !== "hidden" || peekTimerRef.current) return;
+    setPeeking(true);
+    peekTimerRef.current = setTimeout(() => {
+      setPeeking(false);
+      peekTimerRef.current = undefined;
+    }, PEEK_MS);
+  }, [reducedMotion]);
 
   useEffect(() => {
     if (!armIdleTimer || reducedMotion) return;
@@ -77,13 +126,13 @@ export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
     const schedule = () => {
       const delay = IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS);
       timer = setTimeout(() => {
-        if (document.visibilityState === "visible" && stateRef.current === "idle") play("idle-peek", PEEK_MS);
+        if (document.visibilityState === "visible" && phaseRef.current === "hidden") runCycle("idle");
         schedule();
       }, delay);
     };
     schedule();
     return () => clearTimeout(timer);
-  }, [armIdleTimer, reducedMotion, play]);
+  }, [armIdleTimer, reducedMotion, runCycle]);
 
-  return { variant, animationKey, triggerMessage, triggerHover };
+  return { phase, playfulKind, peeking, animationKey, triggerMessage, triggerHover };
 }

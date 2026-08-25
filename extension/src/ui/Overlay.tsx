@@ -213,7 +213,14 @@ export function Overlay() {
     <div className="pco-root" data-theme={settings.theme} ref={rootRef}>
       <div className="pco-portal-layer" ref={portalRef} />
 
-      <FabCharacter position={draggable.position} variant={character.variant} animationKey={character.animationKey} />
+      <FabCharacter
+        layer="back"
+        position={draggable.position}
+        phase={character.phase}
+        playfulKind={character.playfulKind}
+        peeking={character.peeking}
+        animationKey={character.animationKey}
+      />
 
       <Fab
         ref={fabRef}
@@ -228,6 +235,15 @@ export function Overlay() {
         onRightClick={handleRightClick}
         onMouseEnter={handleFabEnter}
         onMouseLeave={handleZoneLeave}
+      />
+
+      <FabCharacter
+        layer="front"
+        position={draggable.position}
+        phase={character.phase}
+        playfulKind={character.playfulKind}
+        peeking={character.peeking}
+        animationKey={character.animationKey}
       />
 
       <FabCallout visible={calloutVisible} anchor={calloutAnchor} onClick={handleCalloutClick} />

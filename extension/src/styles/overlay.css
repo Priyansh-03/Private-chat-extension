@@ -29,6 +29,11 @@
   --pco-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
   --pco-backdrop: none;
   --pco-hover-bg: #f2f2f3;
+
+  /* Mascot palette — fixed across themes, this is the character's own coloring, not UI chrome. */
+  --pco-char-skin: #f2b985;
+  --pco-char-shirt: #ff8a5c;
+  --pco-char-cheek: #ff9d81;
 }
 
 .pco-root[data-theme="dark"] {
@@ -194,7 +199,48 @@
   }
 }
 
-/* ---------- FAB peek character (decorative, pointer-events: none) ---------- */
+/* Ambient glow while there's unread mail waiting — distinct from pco-fab__pulse's one-shot
+   arrival ring, this keeps going until the FAB is opened or Quiet Mode is on. */
+.pco-fab--glow {
+  animation: pco-fab-glow 2200ms ease-in-out infinite;
+}
+
+@keyframes pco-fab-glow {
+  0%,
+  100% {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), 0 0 0 0 var(--pco-accent);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), 0 0 16px 4px var(--pco-accent);
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pco-fab--glow {
+    animation: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18), 0 0 10px 2px var(--pco-accent);
+  }
+}
+
+/* ---------- FAB mascot (decorative, pointer-events: none) ---------- */
+/*
+ * A small character that lives behind the FAB. Rendered as two DOM layers around <Fab> (see
+ * Overlay.tsx): "back" (head + eyes + body) paints before the FAB so its opaque circle naturally
+ * covers the lower half of the head at rest; "front" (hands) paints after the FAB so they read as
+ * gripping its rim once emerged. Every animated property is transform/opacity only.
+ *
+ * Phases: hidden (persistent default) -> emerging -> playful (idle | wave) -> hiding -> hidden.
+ * "hiding" reuses the emerge keyframes played in reverse via animation-direction.
+ */
+
+/*
+ * Vertical coordinate space: 0 = the FAB's top edge, negative = above the FAB (clear, visible),
+ * positive = down inside the FAB's own circle (visually occluded, since head/body paint before the
+ * FAB in DOM order — see Overlay.tsx). Hidden values sit low/positive-ish so only a sliver of head
+ * clears the line; risen values are well negative so the head/body clear the FAB entirely.
+ */
 
 .pco-character {
   position: fixed;
@@ -203,95 +249,320 @@
   pointer-events: none;
 }
 
-/* Two-part silhouette echoing the logo's own mark in miniature: a small dark "head" with an accent-colored peek at its corner — not a plain dot. */
-.pco-character__shape {
+.pco-character__head {
   position: absolute;
-  bottom: 0;
+  top: 0;
   left: 50%;
-  width: 18px;
-  height: 18px;
-  transform: translate(-50%, 8px);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--pco-char-skin);
+  transform: translate(-50%, -14px);
+  --pco-char-bounce-y: -34px;
+}
+
+.pco-character__head::before,
+.pco-character__head::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  width: 3px;
+  height: 2px;
+  border-radius: 50%;
+  background: var(--pco-char-cheek);
+  opacity: 0.8;
+}
+
+.pco-character__head::before {
+  left: 2px;
+}
+
+.pco-character__head::after {
+  right: 2px;
+}
+
+.pco-character__eye {
+  position: absolute;
+  top: 6px;
+  width: 5px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.pco-character__eye--l {
+  left: 5px;
+}
+
+.pco-character__eye--r {
+  right: 5px;
+}
+
+.pco-character__pupil {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2.4px;
+  height: 2.4px;
+  border-radius: 50%;
+  background: #18181b;
+  transform: translate(-50%, -50%);
+}
+
+.pco-character__body {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 24px;
+  height: 20px;
+  border-radius: 10px 10px 8px 8px;
+  background: var(--pco-char-shirt);
+  transform: translate(-50%, 16px);
+  opacity: 0;
+  --pco-char-bounce-y: -16px;
+}
+
+.pco-character__hand {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--pco-char-skin);
   opacity: 0;
 }
 
-.pco-character__shape::before {
-  content: "";
-  position: absolute;
-  top: 1px;
-  left: 0;
-  width: 13px;
-  height: 13px;
-  border-radius: 4px;
-  background: var(--pco-fab-bg-open);
+.pco-character__hand--l {
+  transform: translate(calc(-50% - 14px), 20px);
 }
 
-.pco-character__shape::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  bottom: 1px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--pco-accent);
+.pco-character__hand--r {
+  transform: translate(calc(-50% + 14px), 20px);
 }
 
-.pco-character--idle-peek .pco-character__shape,
-.pco-character--message-peek .pco-character__shape {
-  animation: pco-character-peek 1600ms ease-in-out;
+/* Slow, continuous while at rest: eyes look left -> center -> right -> center. */
+.pco-character--hidden .pco-character__pupil {
+  animation: pco-char-look 7000ms ease-in-out infinite;
 }
 
-.pco-character--hover-peek .pco-character__shape {
-  animation: pco-character-hover 800ms ease-out;
-}
-
-@keyframes pco-character-peek {
-  0% {
-    transform: translate(-50%, 8px) rotate(0deg);
-    opacity: 0;
+@keyframes pco-char-look {
+  0%,
+  8% {
+    transform: translate(calc(-50% - 1.4px), -50%);
   }
-  15%,
-  40% {
-    transform: translate(-50%, -16px) rotate(0deg);
-    opacity: 1;
+  38%,
+  46% {
+    transform: translate(-50%, -50%);
   }
-  55% {
-    transform: translate(-50%, -16px) rotate(-6deg);
+  60%,
+  68% {
+    transform: translate(calc(-50% + 1.4px), -50%);
   }
-  70% {
-    transform: translate(-50%, -16px) rotate(6deg);
-  }
-  85% {
-    transform: translate(-50%, -16px) rotate(0deg);
-    opacity: 1;
-  }
+  92%,
   100% {
-    transform: translate(-50%, 8px) rotate(0deg);
-    opacity: 0;
+    transform: translate(-50%, -50%);
   }
 }
 
-@keyframes pco-character-hover {
+/* Hover reaction: a brief upward glance, no emerge. Overrides the look-loop by specificity. */
+.pco-character--hidden.pco-character--peeking .pco-character__pupil {
+  animation: pco-char-alert 700ms ease-out;
+}
+
+@keyframes pco-char-alert {
   0% {
-    transform: translate(-50%, 8px);
-    opacity: 0;
+    transform: translate(-50%, -50%);
   }
   30%,
   70% {
-    transform: translate(-50%, -10px);
+    transform: translate(-50%, calc(-50% - 1.6px));
+  }
+  100% {
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* Emerge: head rises and rocks upright, body/hands rise and fade in as if pulling up on the rim. */
+.pco-character--emerging .pco-character__head {
+  animation: pco-char-emerge-head 550ms ease-out forwards;
+}
+
+.pco-character--emerging .pco-character__body {
+  animation: pco-char-emerge-body 550ms ease-out forwards;
+}
+
+.pco-character--emerging .pco-character__hand--l {
+  animation: pco-char-emerge-hand-l 550ms ease-out forwards;
+}
+
+.pco-character--emerging .pco-character__hand--r {
+  animation: pco-char-emerge-hand-r 550ms ease-out forwards;
+}
+
+/* Hide: the same motion, played backward. */
+.pco-character--hiding .pco-character__head {
+  animation: pco-char-emerge-head 500ms ease-in reverse forwards;
+}
+
+.pco-character--hiding .pco-character__body {
+  animation: pco-char-emerge-body 500ms ease-in reverse forwards;
+}
+
+.pco-character--hiding .pco-character__hand--l {
+  animation: pco-char-emerge-hand-l 500ms ease-in reverse forwards;
+}
+
+.pco-character--hiding .pco-character__hand--r {
+  animation: pco-char-emerge-hand-r 500ms ease-in reverse forwards;
+}
+
+/* Playful: holds the emerged pose. Idle gets a small bounce/lean + one blink; a message gets a wave
+   from the right hand only, so the left hand visibly keeps its grip on the FAB. */
+.pco-character--playful .pco-character__head {
+  transform: translate(-50%, -34px);
+}
+
+.pco-character--playful .pco-character__body {
+  transform: translate(-50%, -16px);
+  opacity: 1;
+}
+
+.pco-character--playful .pco-character__hand--l {
+  transform: translate(calc(-50% - 20px), -2px) rotate(-10deg);
+  opacity: 1;
+}
+
+.pco-character--playful .pco-character__hand--r {
+  transform: translate(calc(-50% + 20px), -2px) rotate(10deg);
+  opacity: 1;
+}
+
+.pco-character--playful.pco-character--idle .pco-character__head,
+.pco-character--playful.pco-character--idle .pco-character__body {
+  animation: pco-char-bounce 1000ms ease-in-out;
+}
+
+.pco-character--playful.pco-character--idle .pco-character__eye {
+  animation: pco-char-blink 1000ms ease-in-out;
+}
+
+.pco-character--playful.pco-character--wave .pco-character__hand--r {
+  animation: pco-char-wave 1100ms ease-in-out;
+}
+
+@keyframes pco-char-emerge-head {
+  0% {
+    transform: translate(-50%, -14px);
+  }
+  60% {
+    transform: translate(-50%, -37px) rotate(-3deg);
+  }
+  100% {
+    transform: translate(-50%, -34px) rotate(0deg);
+  }
+}
+
+@keyframes pco-char-emerge-body {
+  0% {
+    transform: translate(-50%, 16px);
+    opacity: 0;
+  }
+  40% {
     opacity: 1;
   }
   100% {
-    transform: translate(-50%, 8px);
+    transform: translate(-50%, -16px);
+    opacity: 1;
+  }
+}
+
+@keyframes pco-char-emerge-hand-l {
+  0% {
+    transform: translate(calc(-50% - 14px), 20px) rotate(0deg);
     opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% - 20px), -2px) rotate(-10deg);
+    opacity: 1;
+  }
+}
+
+@keyframes pco-char-emerge-hand-r {
+  0% {
+    transform: translate(calc(-50% + 14px), 20px) rotate(0deg);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + 20px), -2px) rotate(10deg);
+    opacity: 1;
+  }
+}
+
+@keyframes pco-char-bounce {
+  0%,
+  100% {
+    transform: translate(-50%, var(--pco-char-bounce-y));
+  }
+  35% {
+    transform: translate(-50%, calc(var(--pco-char-bounce-y) - 2px));
+  }
+}
+
+@keyframes pco-char-blink {
+  0%,
+  40%,
+  60%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes pco-char-wave {
+  0%,
+  100% {
+    transform: translate(calc(-50% + 20px), -2px) rotate(10deg);
+  }
+  25% {
+    transform: translate(calc(-50% + 20px), -6px) rotate(32deg);
+  }
+  50% {
+    transform: translate(calc(-50% + 20px), -6px) rotate(6deg);
+  }
+  75% {
+    transform: translate(calc(-50% + 20px), -6px) rotate(32deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pco-character__shape {
+  .pco-character__head,
+  .pco-character__body,
+  .pco-character__hand,
+  .pco-character__eye,
+  .pco-character__pupil {
     animation: none;
-    transform: translate(-50%, -10px);
-    opacity: 1;
+  }
+
+  .pco-character__head {
+    transform: translate(-50%, -14px);
+  }
+
+  .pco-character__body,
+  .pco-character__hand {
+    opacity: 0;
+  }
+
+  .pco-character__pupil {
+    transform: translate(-50%, -50%);
   }
 }
 
