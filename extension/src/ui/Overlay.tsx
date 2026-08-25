@@ -218,7 +218,6 @@ export function Overlay() {
         position={draggable.position}
         phase={character.phase}
         playfulKind={character.playfulKind}
-        peeking={character.peeking}
         animationKey={character.animationKey}
       />
 
@@ -242,7 +241,6 @@ export function Overlay() {
         position={draggable.position}
         phase={character.phase}
         playfulKind={character.playfulKind}
-        peeking={character.peeking}
         animationKey={character.animationKey}
       />
 

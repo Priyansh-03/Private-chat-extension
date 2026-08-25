@@ -7,9 +7,8 @@ const IDLE_MIN_MS = 15000;
 const IDLE_MAX_MS = 30000;
 const EMERGE_MS = 550;
 const PLAYFUL_IDLE_MS = 1000;
-const PLAYFUL_WAVE_MS = 1100;
+const PLAYFUL_MESSAGE_MS = 4500;
 const HIDE_MS = 500;
-const PEEK_MS = 700;
 
 function getReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -18,7 +17,6 @@ function getReducedMotion(): boolean {
 export interface FabCharacterApi {
   phase: FabCharacterPhase;
   playfulKind: PlayfulKind | null;
-  peeking: boolean;
   animationKey: number;
   triggerMessage: () => void;
   triggerHover: () => void;
@@ -26,18 +24,18 @@ export interface FabCharacterApi {
 
 /**
  * hidden -> emerging -> playful -> hiding -> hidden. A new message always interrupts the current
- * cycle and plays a wave; hover only plays a brief eye-dart peek, and only while fully hidden.
+ * cycle and plays an extended wave (kept up alongside the "new message" thought bubble); hover
+ * plays the same brief cycle as idle, but only while fully hidden, so repeated hovering while
+ * already up doesn't restart the animation.
  */
 export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
   const [phase, setPhase] = useState<FabCharacterPhase>("hidden");
   const [playfulKind, setPlayfulKind] = useState<PlayfulKind | null>(null);
-  const [peeking, setPeeking] = useState(false);
   const [animationKey, setAnimationKey] = useState(0);
   const [reducedMotion, setReducedMotion] = useState(getReducedMotion);
 
   const phaseRef = useRef<FabCharacterPhase>("hidden");
   const cycleTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const peekTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const clearCycleTimers = useCallback(() => {
     cycleTimersRef.current.forEach(clearTimeout);
@@ -68,7 +66,7 @@ export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
             }, HIDE_MS);
             cycleTimersRef.current.push(toHidden);
           },
-          kind === "wave" ? PLAYFUL_WAVE_MS : PLAYFUL_IDLE_MS,
+          kind === "wave" ? PLAYFUL_MESSAGE_MS : PLAYFUL_IDLE_MS,
         );
         cycleTimersRef.current.push(toHiding);
       }, EMERGE_MS);
@@ -84,27 +82,16 @@ export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
     return () => mql.removeEventListener("change", onChange);
   }, []);
 
-  // Reduced motion always wins: snap back to a static hidden pose and drop any in-flight cycle/peek.
+  // Reduced motion always wins: snap back to a static hidden pose and drop any in-flight cycle.
   useEffect(() => {
     if (!reducedMotion) return;
     clearCycleTimers();
-    if (peekTimerRef.current) {
-      clearTimeout(peekTimerRef.current);
-      peekTimerRef.current = undefined;
-    }
     phaseRef.current = "hidden";
     setPhase("hidden");
     setPlayfulKind(null);
-    setPeeking(false);
   }, [reducedMotion, clearCycleTimers]);
 
-  useEffect(
-    () => () => {
-      clearCycleTimers();
-      if (peekTimerRef.current) clearTimeout(peekTimerRef.current);
-    },
-    [clearCycleTimers],
-  );
+  useEffect(() => clearCycleTimers, [clearCycleTimers]);
 
   const triggerMessage = useCallback(() => {
     if (reducedMotion) return;
@@ -112,13 +99,9 @@ export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
   }, [reducedMotion, runCycle]);
 
   const triggerHover = useCallback(() => {
-    if (reducedMotion || phaseRef.current !== "hidden" || peekTimerRef.current) return;
-    setPeeking(true);
-    peekTimerRef.current = setTimeout(() => {
-      setPeeking(false);
-      peekTimerRef.current = undefined;
-    }, PEEK_MS);
-  }, [reducedMotion]);
+    if (reducedMotion || phaseRef.current !== "hidden") return;
+    runCycle("idle");
+  }, [reducedMotion, runCycle]);
 
   useEffect(() => {
     if (!armIdleTimer || reducedMotion) return;
@@ -134,5 +117,5 @@ export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
     return () => clearTimeout(timer);
   }, [armIdleTimer, reducedMotion, runCycle]);
 
-  return { phase, playfulKind, peeking, animationKey, triggerMessage, triggerHover };
+  return { phase, playfulKind, animationKey, triggerMessage, triggerHover };
 }

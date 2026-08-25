@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Private Chat Overlay",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A hidden, privacy-first 1-to-1 chat layer that sits on top of any webpage.",
   "permissions": ["storage"],
   "icons": {

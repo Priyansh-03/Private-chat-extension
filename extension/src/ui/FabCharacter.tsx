@@ -5,30 +5,24 @@ interface FabCharacterProps {
   position: { x: number; y: number };
   phase: FabCharacterPhase;
   playfulKind: PlayfulKind | null;
-  peeking: boolean;
   animationKey: number;
   layer: "back" | "front";
 }
 
-function characterClassName(phase: FabCharacterPhase, playfulKind: PlayfulKind | null, peeking: boolean): string {
-  return [
-    "pco-character",
-    `pco-character--${phase}`,
-    playfulKind ? `pco-character--${playfulKind}` : "",
-    peeking ? "pco-character--peeking" : "",
-  ]
+function characterClassName(phase: FabCharacterPhase, playfulKind: PlayfulKind | null): string {
+  return ["pco-character", `pco-character--${phase}`, playfulKind ? `pco-character--${playfulKind}` : ""]
     .filter(Boolean)
     .join(" ");
 }
 
 /**
  * Purely decorative, pointer-events: none — never intercepts drag/click on the FAB beneath it.
- * Rendered as two layers straddling the FAB in the DOM: "back" (head/eyes/body) is painted before the
- * FAB so the FAB's opaque circle naturally occludes the lower half of the head while hidden; "front"
- * (hands) is painted after the FAB so they appear to grip its rim once emerged.
+ * Rendered as two layers straddling the FAB in the DOM: "back" (head/eyes/mouth/body) is painted
+ * before the FAB so the FAB's opaque circle naturally occludes the lower half of the head while
+ * hidden; "front" (hands) is painted after the FAB so they appear to grip its rim once emerged.
  */
-export function FabCharacter({ position, phase, playfulKind, peeking, animationKey, layer }: FabCharacterProps) {
-  const className = characterClassName(phase, playfulKind, peeking);
+export function FabCharacter({ position, phase, playfulKind, animationKey, layer }: FabCharacterProps) {
+  const className = characterClassName(phase, playfulKind);
   const style = { left: position.x + FAB_SIZE / 2, top: position.y };
 
   if (layer === "back") {
@@ -42,6 +36,7 @@ export function FabCharacter({ position, phase, playfulKind, peeking, animationK
           <span className="pco-character__eye pco-character__eye--r">
             <span className="pco-character__pupil" />
           </span>
+          <span className="pco-character__mouth" />
         </span>
       </div>
     );

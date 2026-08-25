@@ -132,7 +132,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  background: linear-gradient(135deg, #8ab0ff, #2f6fed);
 }
 
 .pco-root[data-theme="dark"] .pco-fab__glyph {
@@ -309,6 +309,27 @@
   transform: translate(-50%, -50%);
 }
 
+/* Hidden while tucked behind the FAB; only shown once he's actually up, so the reveal (rather
+   than a static grin peeking over the rim) is what reads as "surprise!" */
+.pco-character__mouth {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 7px;
+  height: 4px;
+  border-radius: 0 0 6px 6px;
+  background: #7a3b2e;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.pco-character--emerging .pco-character__mouth,
+.pco-character--playful .pco-character__mouth,
+.pco-character--hiding .pco-character__mouth {
+  opacity: 1;
+}
+
 .pco-character__body {
   position: absolute;
   top: 0;
@@ -360,24 +381,6 @@
     transform: translate(calc(-50% + 1.4px), -50%);
   }
   92%,
-  100% {
-    transform: translate(-50%, -50%);
-  }
-}
-
-/* Hover reaction: a brief upward glance, no emerge. Overrides the look-loop by specificity. */
-.pco-character--hidden.pco-character--peeking .pco-character__pupil {
-  animation: pco-char-alert 700ms ease-out;
-}
-
-@keyframes pco-char-alert {
-  0% {
-    transform: translate(-50%, -50%);
-  }
-  30%,
-  70% {
-    transform: translate(-50%, calc(-50% - 1.6px));
-  }
   100% {
     transform: translate(-50%, -50%);
   }
@@ -448,7 +451,9 @@
 }
 
 .pco-character--playful.pco-character--wave .pco-character__hand--r {
-  animation: pco-char-wave 1100ms ease-in-out;
+  /* Loops for as long as the "wave" playful phase holds (~4.5s for a new message) rather than
+     playing once and freezing mid-wave; the phase class change on hide stops it cleanly. */
+  animation: pco-char-wave 1100ms ease-in-out infinite;
 }
 
 @keyframes pco-char-emerge-head {
