@@ -1,0 +1,19 @@
+INVITE_CODE_LENGTH = 8
+INVITE_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"  # no 0/O/1/I to avoid ambiguity
+INVITE_CODE_GENERATION_ATTEMPTS = 5
+
+AUTH_TOKEN_BYTES = 32
+PUBLIC_KEY_BYTES = 32  # raw X25519 public key length
+
+WS_AUTH_TIMEOUT_SECONDS = 5
+WS_CLOSE_AUTH_TIMEOUT = 4001
+WS_CLOSE_AUTH_INVALID = 4003
+WS_CLOSE_AUTH_MALFORMED = 4004
+
+DEFAULT_CONFIG_ID = "default"
+DEFAULT_CONFIG_DOCUMENT: dict[str, object] = {
+    "_id": DEFAULT_CONFIG_ID,
+    "quick_replies": ["Hi", "In a meeting", "TTYL", "See you"],
+    "message_char_limit": 2000,
+    "feature_flags": {},
+}
