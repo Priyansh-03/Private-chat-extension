@@ -1,3 +1,4 @@
+import { REMOTE_TYPING_FAILSAFE_MS, TYPING_INACTIVITY_MS } from "./constants";
 import { TypedEmitter } from "./emitter";
 import type { OutboundToBackground } from "./transportProtocol";
 import type { ChatBusEvents, ChatMessage, ChatState, Contact, MessageDeliveryState, TypingState } from "./types";
@@ -7,9 +8,6 @@ function nextId(): string {
   messageSeq += 1;
   return `msg_${Date.now()}_${messageSeq}`;
 }
-
-const TYPING_INACTIVITY_MS = 3000;
-const REMOTE_TYPING_FAILSAFE_MS = 8000;
 
 function postToBackground(message: OutboundToBackground): void {
   // background not reachable right after install; safe to ignore
@@ -72,7 +70,8 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
       deliveryState: "sending",
       seen: true,
     };
-    this.setState({ messages: [...this.state.messages, message], draft: "" });
+    const messages = [...this.state.messages, message];
+    this.setState({ messages, draft: "" });
     this.stopTyping();
     this.emit("message:outgoing", message);
     postToBackground({ type: "chat:outgoing", contactId: this.state.contact.id, messageId: message.id, text: trimmed });
@@ -136,7 +135,11 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
     this.updateMessage(messageId, { deliveryState: "failed" });
   }
 
+  /** messageId is not deduped server-side (see backend/docs/protocol.md) — a resend after a
+   * dropped ack, or a retry racing a live delivery, can legitimately reach here twice for the
+   * same id. Silently drop the repeat rather than rendering a duplicate bubble. */
   receiveMessage(text: string, id: string): void {
+    if (this.state.messages.some((m) => m.id === id)) return;
     const message: ChatMessage = {
       id,
       text,
@@ -150,12 +153,21 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
     this.emit("message:incoming", message);
   }
 
-  /** One-way: a message can only go unseen -> seen, never back. No-op if already seen or outgoing. */
+  renameContact(name: string): void {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === this.state.contact.name) return;
+    this.setState({ contact: { ...this.state.contact, name: trimmed } });
+  }
+
+  /** One-way: a message can only go unseen -> seen, never back. No-op if already seen or outgoing.
+   * Also the signal the real backend needs to relay a read receipt back to the sender — the mock
+   * transport just ignores this outbound type, matching its "no real peer" chat:typing handling. */
   markSeen(messageId: string): void {
     const message = this.state.messages.find((m) => m.id === messageId);
     if (!message || message.direction !== "incoming" || message.seen) return;
     const messages = this.state.messages.map((m) => (m.id === messageId ? { ...m, seen: true } : m));
     this.setState({ messages, unreadCount: computeUnreadCount(messages) });
+    postToBackground({ type: "chat:read-ack", contactId: this.state.contact.id, messageId, readAt: Date.now() });
   }
 
   applyRemoteTyping(state: TypingState): void {
@@ -169,5 +181,14 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
   setPresence(status: Contact["status"]): void {
     this.setState({ contact: { ...this.state.contact, status } });
     this.emit("presence:changed", status);
+  }
+
+  /** One-way, like markSeen: connected can only go true -> false locally (the disconnecting side
+   * doesn't reconnect this contact — a fresh accepted invite constructs a new one instead, see
+   * workspace.addContact's idempotency guard). */
+  setConnected(connected: boolean): void {
+    if (this.state.contact.connected === connected) return;
+    this.setState({ contact: { ...this.state.contact, connected } });
+    this.emit("connected:changed", connected);
   }
 }

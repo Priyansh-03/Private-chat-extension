@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { FAB_DRAG_THRESHOLD, FAB_MARGIN, FAB_SIZE } from "../../lib/constants";
 import { clamp } from "../../lib/geometry";
 import { loadFabPosition, saveFabPosition } from "../../lib/settingsStore";
-
-export const FAB_SIZE = 52;
-const MARGIN = 20;
-const DRAG_THRESHOLD = 4;
 
 interface Position {
   x: number;
@@ -13,8 +10,8 @@ interface Position {
 
 function defaultPosition(): Position {
   return {
-    x: window.innerWidth - FAB_SIZE - MARGIN,
-    y: window.innerHeight - FAB_SIZE - MARGIN - 60,
+    x: window.innerWidth - FAB_SIZE - FAB_MARGIN,
+    y: window.innerHeight - FAB_SIZE - FAB_MARGIN - 60,
   };
 }
 
@@ -37,8 +34,8 @@ export function useDraggable(): DraggableApi {
     loadFabPosition().then((saved) => {
       if (!cancelled && saved) {
         setPosition({
-          x: clamp(saved.x, MARGIN, window.innerWidth - FAB_SIZE - MARGIN),
-          y: clamp(saved.y, MARGIN, window.innerHeight - FAB_SIZE - MARGIN),
+          x: clamp(saved.x, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN),
+          y: clamp(saved.y, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN),
         });
       }
     });
@@ -50,8 +47,8 @@ export function useDraggable(): DraggableApi {
   useEffect(() => {
     const clampToViewport = () => {
       setPosition((prev) => ({
-        x: clamp(prev.x, MARGIN, window.innerWidth - FAB_SIZE - MARGIN),
-        y: clamp(prev.y, MARGIN, window.innerHeight - FAB_SIZE - MARGIN),
+        x: clamp(prev.x, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN),
+        y: clamp(prev.y, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN),
       }));
     };
     window.addEventListener("resize", clampToViewport);
@@ -74,12 +71,12 @@ export function useDraggable(): DraggableApi {
       const handleMove = (moveEvent: PointerEvent) => {
         const dx = moveEvent.clientX - dragOrigin.current.pointerX;
         const dy = moveEvent.clientY - dragOrigin.current.pointerY;
-        if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
+        if (Math.abs(dx) > FAB_DRAG_THRESHOLD || Math.abs(dy) > FAB_DRAG_THRESHOLD) {
           draggedRef.current = true;
         }
         setPosition({
-          x: clamp(dragOrigin.current.startX + dx, MARGIN, window.innerWidth - FAB_SIZE - MARGIN),
-          y: clamp(dragOrigin.current.startY + dy, MARGIN, window.innerHeight - FAB_SIZE - MARGIN),
+          x: clamp(dragOrigin.current.startX + dx, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN),
+          y: clamp(dragOrigin.current.startY + dy, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN),
         });
       };
 
@@ -91,8 +88,8 @@ export function useDraggable(): DraggableApi {
           const dx = upEvent.clientX - dragOrigin.current.pointerX;
           const dy = upEvent.clientY - dragOrigin.current.pointerY;
           void saveFabPosition({
-            x: clamp(dragOrigin.current.startX + dx, MARGIN, window.innerWidth - FAB_SIZE - MARGIN),
-            y: clamp(dragOrigin.current.startY + dy, MARGIN, window.innerHeight - FAB_SIZE - MARGIN),
+            x: clamp(dragOrigin.current.startX + dx, FAB_MARGIN, window.innerWidth - FAB_SIZE - FAB_MARGIN),
+            y: clamp(dragOrigin.current.startY + dy, FAB_MARGIN, window.innerHeight - FAB_SIZE - FAB_MARGIN),
           });
         }
       };

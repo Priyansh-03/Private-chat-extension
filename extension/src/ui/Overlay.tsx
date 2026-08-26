@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { USE_REAL_BACKEND } from "../lib/backendConfig";
+import { MESSAGE_NOTICE_DURATION_MS, PANEL_AUTO_CLOSE_MS } from "../lib/constants";
 import { createDemoSeeds } from "../lib/devSeed";
 import { getUnseenIncoming } from "../lib/chatEventBus";
 import { playNotificationSound, primeAudio } from "../lib/sound";
-import { replaceSettings } from "../lib/settingsStore";
+import { loadContactNameOverrides, onContactNameOverridesChanged, saveContactName } from "../lib/contactOverrides";
 import type { ChatWorkspace as ChatWorkspaceType } from "../lib/workspace";
 import { ChatWorkspace } from "../lib/workspace";
-import type { InboundFromBackground, OutboundToBackground } from "../lib/transportProtocol";
-import type { ChatMessage, ConnectionStatus, DisclosureMode, MyStatusPreset } from "../lib/types";
+import type {
+  InboundFromBackground,
+  OutboundToBackground,
+  PendingIncomingEntry,
+  RemoteContactSnapshot,
+  RemoveContactResponse,
+} from "../lib/transportProtocol";
+import { defaultContactName, type ChatMessage, type ConnectionStatus, type DisclosureMode } from "../lib/types";
 import { Fab } from "./Fab";
 import { FabCharacter } from "./FabCharacter";
 import { FabCallout, CALLOUT_SIZE } from "./FabCallout";
@@ -32,8 +40,57 @@ function requestInitialStatus(): Promise<ConnectionStatus> {
 export function Overlay() {
   const { settings, refresh: refreshSettings } = useSettings();
   const workspaceRef = useRef<ChatWorkspaceType>();
-  if (!workspaceRef.current) workspaceRef.current = new ChatWorkspace(createDemoSeeds());
+  if (!workspaceRef.current) workspaceRef.current = new ChatWorkspace(USE_REAL_BACKEND ? [] : createDemoSeeds());
   const workspace = workspaceRef.current;
+
+  // Real contacts arrive asynchronously: an initial fetch here, then live contact:added events
+  // via the existing workspace.route() call below (both the inviter and the acceptor side of a
+  // pairing get one — see backendTransport.ts). Demo mode already has its seeds at construction.
+  // Silent: these are pre-existing contacts this tab is just learning about, not new pairings —
+  // otherwise the "New contact added" callout would replay for all of them on every page load.
+  useEffect(() => {
+    if (!USE_REAL_BACKEND) return;
+    let cancelled = false;
+    const request: OutboundToBackground = { type: "contacts:request-list" };
+    chrome.runtime.sendMessage(request).then((contacts: RemoteContactSnapshot[] | undefined) => {
+      if (cancelled || !contacts) return;
+      for (const contact of contacts) {
+        workspace.addContact(
+          {
+            contact: {
+              id: contact.contactId,
+              name: contact.name || defaultContactName(contact.contactId),
+              status: contact.status,
+              connected: contact.connected,
+            },
+          },
+          { silent: true },
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace]);
+
+  // Messages that arrived while no tab was open to receive them live (see backendTransport.ts's
+  // incoming-inbox) — claimed by whichever tab starts up first. route() already buffers a
+  // chat:incoming for a contact this tab hasn't loaded yet (see pendingEvents), so this doesn't
+  // need to wait on the contacts fetch above. Not silent — the user genuinely hasn't seen these.
+  useEffect(() => {
+    if (!USE_REAL_BACKEND) return;
+    let cancelled = false;
+    const request: OutboundToBackground = { type: "chat:request-pending" };
+    chrome.runtime.sendMessage(request).then((pending: PendingIncomingEntry[] | undefined) => {
+      if (cancelled || !pending) return;
+      for (const entry of pending) {
+        workspace.route({ type: "chat:incoming", contactId: entry.contactId, message: entry.message });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace]);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLButtonElement>(null);
@@ -47,6 +104,7 @@ export function Overlay() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("connecting");
   const [pulseKey, setPulseKey] = useState(0);
   const [calloutVisible, setCalloutVisible] = useState(false);
+  const [calloutText, setCalloutText] = useState("You have a new message");
   const calloutTimer = useRef<ReturnType<typeof setTimeout>>();
   const [hoverCount, setHoverCount] = useState(0);
   const [composerFocused, setComposerFocused] = useState(false);
@@ -64,7 +122,7 @@ export function Overlay() {
   useEffect(() => {
     if (disclosure.mode === "hidden") return;
     if (hoverCount > 0 || draggable.isDragging || composerFocused) return;
-    const timer = setTimeout(() => disclosure.close(), 8000);
+    const timer = setTimeout(() => disclosure.close(), PANEL_AUTO_CLOSE_MS);
     return () => clearTimeout(timer);
   }, [disclosure.mode, hoverCount, draggable.isDragging, composerFocused, disclosure.close]);
 
@@ -84,20 +142,52 @@ export function Overlay() {
   // Re-render whenever any conversation's state changes.
   useEffect(() => workspace.onAnyChange(forceRender), [workspace]);
 
-  // New-message pulse + callout + sound, suppressed by Quiet Mode or if that conversation is already open.
+  // New-message pulse + callout + sound, suppressed by Quiet Mode. A conversation already open
+  // skips the pulse/mascot/callout (nothing to draw attention to) but still gets its own quieter
+  // sound, distinct from the "come look at this" notification sound used everywhere else.
   useEffect(
     () =>
       workspace.onIncoming((contactId) => {
+        if (settings.quietMode) return;
         const conversationVisible = modeRef.current !== "hidden" && workspace.getActiveId() === contactId;
-        if (conversationVisible) return;
+
+        if (conversationVisible) {
+          if (settings.activeChatSound) playNotificationSound(settings.activeChatSoundKind);
+          return;
+        }
+
         setPulseKey((key) => key + 1);
         character.triggerMessage();
-        if (settings.sound && !settings.quietMode) playNotificationSound(settings.notificationSound);
-        if (!settings.quietMode) {
-          setCalloutVisible(true);
-          if (calloutTimer.current) clearTimeout(calloutTimer.current);
-          calloutTimer.current = setTimeout(() => setCalloutVisible(false), 4500);
-        }
+        if (settings.sound) playNotificationSound(settings.notificationSound);
+        setCalloutText("You have a new message");
+        setCalloutVisible(true);
+        if (calloutTimer.current) clearTimeout(calloutTimer.current);
+        calloutTimer.current = setTimeout(() => setCalloutVisible(false), MESSAGE_NOTICE_DURATION_MS);
+      }),
+    [
+      workspace,
+      settings.sound,
+      settings.notificationSound,
+      settings.activeChatSound,
+      settings.activeChatSoundKind,
+      settings.quietMode,
+      character.triggerMessage,
+    ],
+  );
+
+  // Same pulse/mascot/callout/sound treatment as a new message, for a newly paired contact —
+  // no name in the callout, matching the existing "never the sender or message text" policy.
+  useEffect(
+    () =>
+      workspace.onContactAdded(() => {
+        if (settings.quietMode) return;
+        setPulseKey((key) => key + 1);
+        character.triggerMessage();
+        if (settings.sound) playNotificationSound(settings.notificationSound);
+        setCalloutText("New contact added");
+        setCalloutVisible(true);
+        if (calloutTimer.current) clearTimeout(calloutTimer.current);
+        calloutTimer.current = setTimeout(() => setCalloutVisible(false), MESSAGE_NOTICE_DURATION_MS);
       }),
     [workspace, settings.sound, settings.notificationSound, settings.quietMode, character.triggerMessage],
   );
@@ -139,23 +229,52 @@ export function Overlay() {
     if (!settings.extensionEnabled) disclosure.closeInstant();
   }, [settings.extensionEnabled]);
 
-  const handleSend = useMemo(() => (text: string) => workspace.getActiveController().sendMessage(text), [workspace]);
+  // Apply any saved contact renames into the live controllers (initial load, then live updates
+  // from other tabs/the popup) — the controllers are the single source of truth for display name.
+  useEffect(() => {
+    let cancelled = false;
+    const applyOverrides = (overrides: Record<string, string>) => {
+      if (cancelled) return;
+      for (const [contactId, name] of Object.entries(overrides)) {
+        workspace.getController(contactId)?.renameContact(name);
+      }
+    };
+    loadContactNameOverrides().then(applyOverrides);
+    const unsubscribe = onContactNameOverridesChanged(applyOverrides);
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [workspace]);
+
+  const handleSend = useMemo(() => (text: string) => workspace.getActiveController()?.sendMessage(text), [workspace]);
   const handleDraftChange = useMemo(
-    () => (text: string) => workspace.getActiveController().setDraft(text),
+    () => (text: string) => workspace.getActiveController()?.setDraft(text),
     [workspace],
   );
   const handleRetry = useMemo(
-    () => (messageId: string) => workspace.getActiveController().retryMessage(messageId),
+    () => (messageId: string) => workspace.getActiveController()?.retryMessage(messageId),
     [workspace],
   );
   const handleRevealMessage = useMemo(
-    () => (messageId: string) => workspace.getActiveController().markSeen(messageId),
+    () => (messageId: string) => workspace.getActiveController()?.markSeen(messageId),
     [workspace],
   );
 
   const handleSelectContact = (id: string) => {
     workspace.setActive(id);
     setView("conversation");
+  };
+
+  // The actual removal from the list happens via workspace.removeContact(), triggered by the
+  // contact:removed broadcast this round-trips through the background (see backendTransport.ts) —
+  // not applied optimistically here, so every open tab (this one included) updates the same way.
+  const handleRemoveContact = (id: string, name: string) => {
+    if (!confirm(`Disconnect ${name}? You'll need a new invite code to pair with them again.`)) return;
+    const request: OutboundToBackground = { type: "contact:remove", contactId: id };
+    chrome.runtime.sendMessage(request).then((response: RemoveContactResponse | undefined) => {
+      if (response && !response.ok) alert(response.error);
+    });
   };
 
   const handleFabPointerDown = (event: React.PointerEvent) => {
@@ -165,6 +284,16 @@ export function Overlay() {
 
   const handleLeftClick = () => {
     if (draggable.consumeDragged()) return;
+    // Peek shows a preview of one contact's conversation — with no contacts at all there's
+    // nothing to preview, so fall back to the same full contacts-list view a right-click opens
+    // (which shows ContactList's own "no contacts yet, use the popup" empty state) instead of
+    // silently toggling disclosure.mode with no panel actually rendering (see the activeState
+    // guards below, now removed for ChatPanel specifically so this has something to show).
+    if (workspace.getContactIds().length === 0) {
+      disclosure.openFull();
+      setView("list");
+      return;
+    }
     disclosure.openPeek();
   };
 
@@ -185,32 +314,55 @@ export function Overlay() {
     setView("conversation");
   };
 
-  const handleMyStatusChange = (myStatus: MyStatusPreset) => {
-    void replaceSettings({ ...settings, myStatus });
+  const handleRenameContact = (name: string) => {
+    const contactId = workspace.getActiveId();
+    if (contactId === undefined) return;
+    workspace.getController(contactId)?.renameContact(name);
+    void saveContactName(contactId, name);
   };
 
   const emojiTheme = settings.theme === "system" ? "auto" : settings.theme === "light" ? "light" : "dark";
 
-  const activeState = workspace.getActiveController().getState();
-  const lastMessage = activeState.messages[activeState.messages.length - 1];
+  // null until at least one contact exists (real contacts arrive asynchronously — see the
+  // contacts:request-list effect above; demo mode always has its seeds by construction).
+  const activeState = workspace.getActiveController()?.getState() ?? null;
+  const lastMessage = activeState?.messages[activeState.messages.length - 1];
 
-  // Peek shows a snapshot taken at open time, not a live-recomputed list —
-  // otherwise hovering the top (oldest) message removes it and the next one
-  // can slide under the cursor and get marked seen too, without a real hover.
+  // Which messages appear in peek is a snapshot taken at open time, not fully live — otherwise
+  // hovering the top (oldest) message removes it and the next one can slide under the cursor and
+  // get marked seen too, without a real hover. But two things must still track live: a message
+  // sent or received *after* that snapshot (e.g. you type and send while peek is still open) needs
+  // to show up, and a captured message's delivery ticks (sending -> delivered -> read) need to
+  // keep updating rather than freezing at whatever state they were in at snapshot time. So only
+  // *membership* (which ids are shown, and their order) is frozen/append-only; the message objects
+  // themselves are always resolved fresh from live state.
   const peekBatchRef = useRef<ChatMessage[]>([]);
+  const peekIdsRef = useRef<string[]>([]);
   const peekSnapshotKeyRef = useRef<string | null>(null);
-  if (disclosure.mode === "peek") {
-    const activeId = workspace.getActiveId();
+  if (disclosure.mode === "peek" && activeState) {
+    const activeId = workspace.getActiveId() ?? null;
     if (peekSnapshotKeyRef.current !== activeId) {
       peekSnapshotKeyRef.current = activeId;
       const unseen = getUnseenIncoming(activeState.messages);
-      peekBatchRef.current = unseen.length > 0 ? unseen : lastMessage ? [lastMessage] : [];
+      const initial = unseen.length > 0 ? unseen : lastMessage ? [lastMessage] : [];
+      peekIdsRef.current = initial.map((m) => m.id);
+    } else {
+      const knownIds = new Set(peekIdsRef.current);
+      for (const message of activeState.messages) {
+        if (!knownIds.has(message.id)) {
+          peekIdsRef.current.push(message.id);
+          knownIds.add(message.id);
+        }
+      }
     }
+    const byId = new Map(activeState.messages.map((m) => [m.id, m]));
+    peekBatchRef.current = peekIdsRef.current.map((id) => byId.get(id)).filter((m): m is ChatMessage => m !== undefined);
   } else {
     peekSnapshotKeyRef.current = null;
+    peekIdsRef.current = [];
   }
 
-  if (!settings.extensionEnabled) return null;
+  if (!settings.extensionEnabled || !settings.showFab) return null;
 
   const fabConnectionStatus = connectionStatus === "off" ? "connecting" : connectionStatus;
 
@@ -249,29 +401,32 @@ export function Overlay() {
         animationKey={character.animationKey}
       />
 
-      <FabCallout visible={calloutVisible} anchor={calloutAnchor} onClick={handleCalloutClick} />
+      <FabCallout visible={calloutVisible} anchor={calloutAnchor} onClick={handleCalloutClick} text={calloutText} />
 
-      <PeekPanel
-        isOpen={disclosure.mode === "peek"}
-        instant={disclosure.instant}
-        anchor={anchor}
-        contactName={activeState.contact.name}
-        messages={peekBatchRef.current}
-        draft={activeState.draft}
-        onDraftChange={handleDraftChange}
-        onSend={handleSend}
-        onRetry={handleRetry}
-        onRevealMessage={handleRevealMessage}
-        privacyMode={settings.privacyMode}
-        quickReplies={settings.quickReplies}
-        onExpand={handleExpand}
-        onClose={disclosure.close}
-        onMouseEnter={handleZoneEnter}
-        onMouseLeave={handleZoneLeave}
-        onComposerFocusChange={setComposerFocused}
-        emojiTheme={emojiTheme}
-        portalRef={portalRef}
-      />
+      {activeState && (
+        <PeekPanel
+          isOpen={disclosure.mode === "peek"}
+          instant={disclosure.instant}
+          anchor={anchor}
+          contactName={activeState.contact.name}
+          connected={activeState.contact.connected}
+          messages={peekBatchRef.current}
+          draft={activeState.draft}
+          onDraftChange={handleDraftChange}
+          onSend={handleSend}
+          onRetry={handleRetry}
+          onRevealMessage={handleRevealMessage}
+          privacyMode={settings.privacyMode}
+          quickReplies={settings.quickReplies}
+          onExpand={handleExpand}
+          onClose={disclosure.close}
+          onMouseEnter={handleZoneEnter}
+          onMouseLeave={handleZoneLeave}
+          onComposerFocusChange={setComposerFocused}
+          emojiTheme={emojiTheme}
+          portalRef={portalRef}
+        />
+      )}
 
       <ChatPanel
         state={activeState}
@@ -284,18 +439,19 @@ export function Overlay() {
         onRevealMessage={handleRevealMessage}
         onClose={disclosure.close}
         privacyMode={settings.privacyMode}
+        showStatus={settings.showStatus}
         quickReplies={settings.quickReplies}
         view={view}
         onShowList={() => setView("list")}
         contactIds={workspace.getContactIds()}
         getController={(id) => workspace.getController(id)}
-        activeId={workspace.getActiveId()}
+        activeId={workspace.getActiveId() ?? ""}
         onSelectContact={handleSelectContact}
+        onRemoveContact={handleRemoveContact}
         onMouseEnter={handleZoneEnter}
         onMouseLeave={handleZoneLeave}
         onComposerFocusChange={setComposerFocused}
-        myStatus={settings.myStatus}
-        onMyStatusChange={handleMyStatusChange}
+        onRenameContact={handleRenameContact}
         emojiTheme={emojiTheme}
         portalRef={portalRef}
       />

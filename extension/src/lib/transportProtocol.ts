@@ -4,7 +4,13 @@ import type { ConnectionStatus, PresenceStatus, TypingState } from "./types";
 export type OutboundToBackground =
   | { type: "chat:outgoing"; contactId: string; messageId: string; text: string }
   | { type: "chat:typing"; contactId: string; state: TypingState }
-  | { type: "chat:request-status" };
+  | { type: "chat:read-ack"; contactId: string; messageId: string; readAt: number }
+  | { type: "chat:request-status" }
+  | { type: "contacts:request-list" }
+  | { type: "contact:create-invite" }
+  | { type: "contact:accept-invite"; code: string; displayName: string }
+  | { type: "contact:remove"; contactId: string }
+  | { type: "chat:request-pending" };
 
 /** Background -> every tab's content script, stand-in for real WebSocket frames. */
 export type InboundFromBackground =
@@ -15,4 +21,32 @@ export type InboundFromBackground =
   | { type: "chat:incoming"; contactId: string; message: { id: string; text: string; timestamp: number } }
   | { type: "chat:remote-typing"; contactId: string; state: TypingState }
   | { type: "presence:contact"; contactId: string; status: PresenceStatus }
-  | { type: "connection:status"; status: ConnectionStatus };
+  | { type: "connection:status"; status: ConnectionStatus }
+  | { type: "contact:added"; contactId: string; name: string; publicKey: string }
+  | { type: "contact:removed"; contactId: string }
+  | { type: "contact:disconnected"; contactId: string };
+
+/** Responses to the request/response-shaped OutboundToBackground messages above (via sendResponse). */
+export type CreateInviteResponse =
+  | { ok: true; code: string; expiresAt: string }
+  | { ok: false; error: string };
+
+export type AcceptInviteResponse =
+  | { ok: true; contactId: string; name: string }
+  | { ok: false; error: string };
+
+export type RemoveContactResponse = { ok: true } | { ok: false; error: string };
+
+/** Response to chat:request-pending — see backendTransport.ts's incoming-inbox. */
+export interface PendingIncomingEntry {
+  contactId: string;
+  message: { id: string; text: string; timestamp: number };
+}
+
+export interface RemoteContactSnapshot {
+  contactId: string;
+  name: string;
+  publicKey: string;
+  status: PresenceStatus;
+  connected: boolean;
+}

@@ -207,6 +207,75 @@ body {
   color: var(--text-secondary);
 }
 
+.pcp-hint--error {
+  color: #d64545;
+}
+
+.pcp-contacts__block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pcp-contacts__block:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.pcp-contacts__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pcp-contacts__key {
+  display: block;
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: var(--hover);
+  border-radius: 6px;
+  padding: 6px 7px;
+}
+
+.pcp-contacts__key--small {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.pcp-contacts__code {
+  display: block;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  background: var(--hover);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.pcp-contacts__contact {
+  padding: 6px 0;
+}
+
+.pcp-contacts__dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: var(--text-secondary);
+}
+
+.pcp-contacts__dot--online {
+  background: #34c759;
+}
+
 .pcp-reset {
   width: 100%;
   margin-top: 10px;

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { MESSAGE_MAX_CHARS } from "../lib/limits";
 import { clamp } from "../lib/geometry";
 import { EmojiPicker } from "./EmojiPicker";
+import { EmojiPickerBoundary } from "./EmojiPickerBoundary";
 import { QuickReplies } from "./QuickReplies";
 import { MessageOverflowLayer } from "./MessageOverflowLayer";
 
@@ -105,13 +106,15 @@ export function Composer({
               ref={emojiPopoverRef}
               style={{ left: pickerAnchor.left, bottom: pickerAnchor.bottom }}
             >
-              <EmojiPicker
-                theme={emojiTheme}
-                onSelect={(emoji) => {
-                  onDraftChange(draft + emoji);
-                  inputRef.current?.focus();
-                }}
-              />
+              <EmojiPickerBoundary>
+                <EmojiPicker
+                  theme={emojiTheme}
+                  onSelect={(emoji) => {
+                    onDraftChange(draft + emoji);
+                    inputRef.current?.focus();
+                  }}
+                />
+              </EmojiPickerBoundary>
             </div>,
             portalRef.current,
           )}
@@ -147,13 +150,7 @@ export function Composer({
             </div>
           )}
         </div>
-        <button
-          type="button"
-          className="pco-send-btn"
-          aria-label="Send message"
-          onClick={submit}
-          disabled={!draft.trim() || overLimit}
-        >
+        <button type="button" className="pco-send-btn" aria-label="Send message" onClick={submit} disabled={!draft.trim() || overLimit}>
           ➤
         </button>
       </div>

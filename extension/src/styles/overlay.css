@@ -19,20 +19,22 @@
   --pco-border: #e6e6e9;
   --pco-text: #111113;
   --pco-text-secondary: #8a8a8e;
-  --pco-bubble-in-bg: #eef0f2;
-  --pco-bubble-in-text: #1c1c1e;
-  --pco-bubble-out-bg: #18181b;
-  --pco-bubble-out-text: #ffffff;
+  --pco-bubble-in-bg: #d2e3ff;
+  --pco-bubble-in-text: #000000;
+  --pco-bubble-out-bg: #dcf8c6;
+  --pco-bubble-out-text: #000000;
   --pco-accent: #2f6fed;
   --pco-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
   --pco-backdrop: none;
   --pco-hover-bg: #f2f2f3;
 
-  /* FAB and mascot palette — fixed across themes; this is the widget's own branding, not UI
-     chrome, so it never flips to a near-white shade the way the panel/bubble colors do. */
+  /* FAB palette — each theme below gives it its own shade, but always a blue (or the unread
+     coral); it never flips to the near-white/gray a plain UI-chrome color would use in dark mode. */
   --pco-fab-bg: #1e40af;
   --pco-fab-bg-open: #172554;
   --pco-fab-bg-unread: #ff8a5c;
+
+  /* Mascot palette — fixed across themes, this is the character's own coloring, not UI chrome. */
   --pco-char-skin: #f2b985;
   --pco-char-shirt: #ff8a5c;
   --pco-char-cheek: #ff9d81;
@@ -44,13 +46,17 @@
   --pco-border: #303033;
   --pco-text: #f2f2f3;
   --pco-text-secondary: #9a9a9e;
-  --pco-bubble-in-bg: #2c2c2e;
-  --pco-bubble-in-text: #f2f2f3;
-  --pco-bubble-out-bg: #2f6fed;
-  --pco-bubble-out-text: #ffffff;
+  --pco-bubble-in-bg: #a8c8ff;
+  --pco-bubble-in-text: #000000;
+  --pco-bubble-out-bg: #b7f0a0;
+  --pco-bubble-out-text: #000000;
   --pco-accent: #6d9bff;
   --pco-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   --pco-hover-bg: #2c2c2e;
+
+  /* Brighter than the light-theme FAB shade so it still reads clearly against a dark page/panel. */
+  --pco-fab-bg: #3b5fd6;
+  --pco-fab-bg-open: #25397f;
 }
 
 .pco-root[data-theme="transparent"] {
@@ -59,10 +65,10 @@
   --pco-border: rgba(255, 255, 255, 0.14);
   --pco-text: #f5f5f6;
   --pco-text-secondary: rgba(245, 245, 246, 0.65);
-  --pco-bubble-in-bg: rgba(255, 255, 255, 0.16);
-  --pco-bubble-in-text: #f5f5f6;
-  --pco-bubble-out-bg: rgba(47, 111, 237, 0.85);
-  --pco-bubble-out-text: #ffffff;
+  --pco-bubble-in-bg: rgba(168, 200, 255, 0.85);
+  --pco-bubble-in-text: #000000;
+  --pco-bubble-out-bg: rgba(183, 240, 160, 0.85);
+  --pco-bubble-out-text: #000000;
   --pco-accent: #8ab0ff;
   --pco-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   --pco-backdrop: blur(14px);
@@ -82,13 +88,15 @@
     --pco-border: #303033;
     --pco-text: #f2f2f3;
     --pco-text-secondary: #9a9a9e;
-    --pco-bubble-in-bg: #2c2c2e;
-    --pco-bubble-in-text: #f2f2f3;
-    --pco-bubble-out-bg: #2f6fed;
-    --pco-bubble-out-text: #ffffff;
+    --pco-bubble-in-bg: #a8c8ff;
+    --pco-bubble-in-text: #000000;
+    --pco-bubble-out-bg: #b7f0a0;
+    --pco-bubble-out-text: #000000;
     --pco-accent: #6d9bff;
     --pco-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
     --pco-hover-bg: #2c2c2e;
+    --pco-fab-bg: #3b5fd6;
+    --pco-fab-bg-open: #25397f;
   }
 }
 
@@ -766,6 +774,13 @@
   min-width: 0;
 }
 
+.pco-header__name-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
 .pco-header__name {
   font-size: 13.5px;
   font-weight: 600;
@@ -773,6 +788,33 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.pco-header__edit {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.pco-header__edit:hover {
+  opacity: 1;
+}
+
+.pco-header__name-input {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--pco-text);
+  background: var(--pco-hover-bg);
+  border: 1px solid var(--pco-border);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.pco-header__name-input:focus {
+  outline: 1.5px solid var(--pco-accent);
+  outline-offset: -1px;
 }
 
 .pco-header__status {
@@ -792,6 +834,14 @@
 
 .pco-header__status--online .pco-header__status-dot {
   background: #34c759;
+}
+
+.pco-header__status--disconnected {
+  color: #ff3b30;
+}
+
+.pco-header__status--disconnected .pco-header__status-dot {
+  background: #ff3b30;
 }
 
 .pco-header__actions {
@@ -825,90 +875,6 @@
   font-size: 16px;
 }
 
-/* ---------- My status ---------- */
-
-.pco-status-picker {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.pco-status-picker__trigger {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 8px;
-  border: 1px solid var(--pco-border);
-  background: transparent;
-  border-radius: 11px;
-  color: var(--pco-text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.pco-status-picker__trigger:hover {
-  background: var(--pco-hover-bg);
-}
-
-.pco-status-picker__dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.pco-status-picker__dot--available {
-  background: #34c759;
-}
-.pco-status-picker__dot--busy {
-  background: #ff3b30;
-}
-.pco-status-picker__dot--meeting {
-  background: #ff9500;
-}
-.pco-status-picker__dot--dnd {
-  background: #af52de;
-}
-.pco-status-picker__dot--afk {
-  background: #8a8a8e;
-}
-
-.pco-status-picker__menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 150px;
-  padding: 4px;
-  border-radius: 10px;
-  background: var(--pco-panel-bg);
-  border: 1px solid var(--pco-border);
-  box-shadow: var(--pco-shadow);
-  z-index: 1;
-}
-
-.pco-status-picker__option {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 8px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  color: var(--pco-text);
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.pco-status-picker__option:hover {
-  background: var(--pco-hover-bg);
-}
-
-.pco-status-picker__option--active {
-  font-weight: 600;
-}
-
 /* ---------- Contact list ---------- */
 
 .pco-contact-list {
@@ -928,17 +894,23 @@
   color: var(--pco-text-secondary);
 }
 
+.pco-contact-list__empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--pco-text-secondary);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.pco-contact-list__empty strong {
+  color: var(--pco-text);
+}
+
 .pco-contact-row {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 9px 8px;
-  border: none;
-  background: transparent;
   border-radius: 8px;
-  cursor: pointer;
-  text-align: left;
   color: var(--pco-text);
   font-size: 13px;
 }
@@ -946,6 +918,39 @@
 .pco-contact-row:hover,
 .pco-contact-row--active {
   background: var(--pco-hover-bg);
+}
+
+.pco-contact-row__select {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+/* Hover-reveal, matching the FAB's own hover-first design language — a permanently visible ×
+   next to every contact would be one accidental click away from disconnecting someone. */
+.pco-contact-row__remove {
+  margin-right: 6px;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.pco-contact-row:hover .pco-contact-row__remove,
+.pco-contact-row:focus-within .pco-contact-row__remove {
+  opacity: 1;
+}
+
+.pco-contact-row__remove:hover {
+  background: rgba(255, 59, 48, 0.14);
+  color: #ff3b30;
 }
 
 .pco-contact-row__dot {
@@ -960,12 +965,23 @@
   background: #34c759;
 }
 
+.pco-contact-row__dot--disconnected {
+  background: #ff3b30;
+}
+
 .pco-contact-row__name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.pco-contact-row__disconnected {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #ff3b30;
 }
 
 .pco-contact-row__badge {
@@ -1031,6 +1047,7 @@
   border-bottom-right-radius: 4px;
 }
 
+
 /* ---------- Privacy masking ---------- */
 
 .pco-privacy-text {
@@ -1072,7 +1089,10 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  color: rgba(255, 255, 255, 0.7);
+  /* Outgoing bubbles are now a light green with black text (see --pco-bubble-out-*) — a
+     translucent black reads clearly there, unlike the white this assumed back when that bubble
+     was dark. */
+  color: rgba(0, 0, 0, 0.55);
   border: none;
   background: none;
   padding: 0;
@@ -1209,6 +1229,17 @@
   z-index: 1;
 }
 
+.pco-emoji-error {
+  margin: 0;
+  padding: 10px 12px;
+  width: 220px;
+  background: var(--pco-surface);
+  color: var(--pco-text-secondary);
+  font-size: 12px;
+  border-radius: 10px;
+  box-shadow: var(--pco-shadow);
+}
+
 .pco-input-wrap {
   position: relative;
   flex: 1;
@@ -1227,6 +1258,14 @@
 
 .pco-input::placeholder {
   color: var(--pco-text-secondary);
+}
+
+.pco-input:disabled {
+  cursor: default;
+}
+
+.pco-input:disabled::placeholder {
+  font-style: italic;
 }
 
 .pco-input-overlay {
@@ -1334,6 +1373,20 @@
   justify-content: center;
   color: var(--pco-text-secondary);
   font-size: 12px;
+}
+
+/* Shared by ChatPanel's conversation view and PeekPanel — replaces the message list + composer
+   entirely once the other side has disconnected you (see Contact.connected). */
+.pco-disconnected-notice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 16px;
+  color: var(--pco-text-secondary);
+  font-size: 13px;
+  background: var(--pco-panel-bg);
 }
 
 .pco-composer--compact .pco-quick-replies {

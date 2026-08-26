@@ -1,4 +1,4 @@
-import { FAB_SIZE } from "./hooks/useDraggable";
+import { FAB_SIZE } from "../lib/constants";
 import type { FabCharacterPhase, PlayfulKind } from "./hooks/useFabCharacter";
 
 interface FabCharacterProps {

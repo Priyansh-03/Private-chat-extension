@@ -13,8 +13,9 @@ export function createDemoSeeds(): ContactSeed[] {
     { id: "seed_4", text: "Okay 😄", direction: "outgoing", timestamp: now - 1000 * 60 * 3, deliveryState: "delivered", seen: true },
   ];
 
+  // Alex already has a history; the others start with an empty conversation.
   return DEMO_CONTACTS.map((seed, index) => ({
-    contact: { id: seed.id, name: seed.name, status: "online" },
+    contact: { id: seed.id, name: seed.name, status: "online", connected: true },
     messages: index === 0 ? alexMessages : [],
   }));
 }

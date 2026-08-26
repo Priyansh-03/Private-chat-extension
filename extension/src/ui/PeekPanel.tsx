@@ -12,6 +12,7 @@ interface PeekPanelProps {
   instant: boolean;
   anchor: Anchor;
   contactName: string;
+  connected: boolean;
   messages: ChatMessage[];
   draft: string;
   onDraftChange: (text: string) => void;
@@ -34,6 +35,7 @@ export function PeekPanel({
   instant,
   anchor,
   contactName,
+  connected,
   messages,
   draft,
   onDraftChange,
@@ -78,23 +80,33 @@ export function PeekPanel({
         </div>
       </div>
 
-      {messages.length === 0 ? (
-        <div className="pco-peek__empty">No messages yet</div>
-      ) : (
-        <PeekMessageList messages={messages} privacyMode={privacyMode} onRetry={onRetry} onRevealMessage={onRevealMessage} />
-      )}
+      {connected ? (
+        <>
+          {messages.length === 0 ? (
+            <div className="pco-peek__empty">No messages yet</div>
+          ) : (
+            <PeekMessageList messages={messages} privacyMode={privacyMode} onRetry={onRetry} onRevealMessage={onRevealMessage} />
+          )}
 
-      <Composer
-        draft={draft}
-        onDraftChange={onDraftChange}
-        onSend={onSend}
-        privacyMode={privacyMode}
-        quickReplies={quickReplies}
-        onFocusChange={onComposerFocusChange}
-        emojiTheme={emojiTheme}
-        portalRef={portalRef}
-        compact
-      />
+          <Composer
+            draft={draft}
+            onDraftChange={onDraftChange}
+            onSend={onSend}
+            privacyMode={privacyMode}
+            quickReplies={quickReplies}
+            onFocusChange={onComposerFocusChange}
+            emojiTheme={emojiTheme}
+            portalRef={portalRef}
+            compact
+          />
+        </>
+      ) : (
+        // Same "they disconnected you" state as ChatPanel's conversation view — no composer,
+        // nothing to send to.
+        <div className="pco-disconnected-notice">
+          <PrivacyText text={contactName} enabled={privacyMode} /> disconnected
+        </div>
+      )}
     </div>
   );
 }

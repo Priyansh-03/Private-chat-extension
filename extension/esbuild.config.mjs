@@ -11,7 +11,14 @@ const shared = {
   sourcemap: true,
   logLevel: "info",
   loader: { ".css": "text" },
-  define: { "process.env.NODE_ENV": watch ? '"development"' : '"production"' },
+  define: {
+    "process.env.NODE_ENV": watch ? '"development"' : '"production"',
+    __BACKEND_HTTP_URL__: JSON.stringify(process.env.BACKEND_HTTP_URL ?? "http://localhost:8000"),
+    __BACKEND_WS_URL__: JSON.stringify(process.env.BACKEND_WS_URL ?? "ws://localhost:8000/ws"),
+    // Defaults to the mock transport so local UI iteration keeps working with zero setup;
+    // opt into the real backend explicitly with USE_REAL_BACKEND=true.
+    __USE_REAL_BACKEND__: JSON.stringify(process.env.USE_REAL_BACKEND === "true"),
+  },
 };
 
 const contentCtx = await esbuild.context({

@@ -4,6 +4,7 @@ import { playNotificationSound } from "../lib/sound";
 import { DEFAULT_SETTINGS, type NotificationSound, type Settings, type ThemeMode } from "../lib/types";
 import { Toggle } from "./Toggle";
 import { QuickReplyEditor } from "./QuickReplyEditor";
+import { ContactsPanel } from "./ContactsPanel";
 
 const THEMES: { value: ThemeMode; label: string }[] = [
   { value: "system", label: "System" },
@@ -16,7 +17,25 @@ const NOTIFICATION_SOUNDS: { value: NotificationSound; label: string }[] = [
   { value: "chime", label: "Chime" },
   { value: "pop", label: "Pop" },
   { value: "ding", label: "Ding" },
+  { value: "tick", label: "Tick" },
 ];
+
+function SoundPicker({ value, onChange }: { value: NotificationSound; onChange: (value: NotificationSound) => void }) {
+  return (
+    <div className="pcp-sound-picker">
+      <select className="pcp-select" value={value} onChange={(event) => onChange(event.target.value as NotificationSound)}>
+        {NOTIFICATION_SOUNDS.map((sound) => (
+          <option key={sound.value} value={sound.value}>
+            {sound.label}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="pcp-btn" aria-label="Preview sound" onClick={() => playNotificationSound(value)}>
+        ▶
+      </button>
+    </div>
+  );
+}
 
 export function SettingsPopup() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -50,9 +69,16 @@ export function SettingsPopup() {
 
       {saveError && <div className="pcp-error">Couldn&apos;t save — try again.</div>}
 
+      <ContactsPanel />
+
       <div className="pcp-row">
         <span>Extension</span>
         <Toggle checked={settings.extensionEnabled} onChange={(v) => update({ extensionEnabled: v })} label="Extension" />
+      </div>
+
+      <div className="pcp-row">
+        <span>Floating Button</span>
+        <Toggle checked={settings.showFab} onChange={(v) => update({ showFab: v })} label="Floating Button" />
       </div>
 
       <div className="pcp-row">
@@ -88,29 +114,34 @@ export function SettingsPopup() {
       {settings.sound && (
         <div className="pcp-row">
           <span>Notification Sound</span>
-          <div className="pcp-sound-picker">
-            <select
-              className="pcp-select"
-              value={settings.notificationSound}
-              onChange={(event) => update({ notificationSound: event.target.value as NotificationSound })}
-            >
-              {NOTIFICATION_SOUNDS.map((sound) => (
-                <option key={sound.value} value={sound.value}>
-                  {sound.label}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="pcp-btn"
-              aria-label="Preview notification sound"
-              onClick={() => playNotificationSound(settings.notificationSound)}
-            >
-              ▶
-            </button>
-          </div>
+          <SoundPicker value={settings.notificationSound} onChange={(v) => update({ notificationSound: v })} />
         </div>
       )}
+
+      <div className="pcp-row">
+        <span>Sound for Open Chat</span>
+        <Toggle
+          checked={settings.activeChatSound}
+          onChange={(v) => update({ activeChatSound: v })}
+          label="Sound for Open Chat"
+        />
+      </div>
+
+      {settings.activeChatSound && (
+        <div className="pcp-row">
+          <span>Open Chat Sound</span>
+          <SoundPicker value={settings.activeChatSoundKind} onChange={(v) => update({ activeChatSoundKind: v })} />
+        </div>
+      )}
+
+      <div className="pcp-row">
+        <span>Browser Notifications</span>
+        <Toggle
+          checked={settings.pushNotifications}
+          onChange={(v) => update({ pushNotifications: v })}
+          label="Browser Notifications"
+        />
+      </div>
 
       <div className="pcp-row">
         <span>Show Status</span>

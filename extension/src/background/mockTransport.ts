@@ -1,27 +1,33 @@
+import {
+  MOCK_ACK_DELAY_JITTER_MS,
+  MOCK_ACK_DELAY_MS,
+  MOCK_CONNECT_DELAY_JITTER_MS,
+  MOCK_CONNECT_DELAY_MS,
+  MOCK_DELIVERY_DELAY_JITTER_MS,
+  MOCK_DELIVERY_DELAY_MS,
+  MOCK_DEMO_MESSAGE_INTERVAL_MS,
+  MOCK_DEMO_MESSAGE_JITTER_MS,
+  MOCK_OFFLINE_TTL_MS,
+  MOCK_PRESENCE_FLIP_INTERVAL_MS,
+  MOCK_PRESENCE_FLIP_JITTER_MS,
+  MOCK_READ_DELAY_JITTER_MS,
+  MOCK_READ_DELAY_MS,
+  MOCK_TYPING_DURATION_JITTER_MS,
+  MOCK_TYPING_DURATION_MS,
+} from "../lib/constants";
 import { DEMO_CONTACTS } from "../lib/demoContacts";
-import type { ConnectionStatus, PresenceStatus } from "../lib/types";
-import type { InboundFromBackground } from "../lib/transportProtocol";
+import type { PendingIncomingEntry, RemoveContactResponse } from "../lib/transportProtocol";
+import type { ConnectionStatus, PresenceStatus, TypingState } from "../lib/types";
+import { notifyNewMessage } from "./notifications";
+import { broadcastToAllTabs, sendToTab } from "./tabMessaging";
+import type { ChatTransport } from "./chatTransport";
 
 /** Stands in for a real WebSocket + server (ack/delivery/read timing, offline TTL queue, demo traffic) — swap for a real client, keep transportProtocol.ts's shapes. MV3 can idle-kill this worker, pausing these timers; a real server wouldn't have that limit. */
 
-const TTL_MS = 45_000;
 const DEMO_INCOMING_TEXTS = ["You there?", "haha nice", "brb 5 min", "sent!", "sounds good", "what time works?"];
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function sendToTab(tabId: number, message: InboundFromBackground): void {
-  chrome.tabs.sendMessage(tabId, message, () => {
-    void chrome.runtime.lastError; // no content script in that tab; ignore
-  });
-}
-
-async function broadcastToAllTabs(message: InboundFromBackground): Promise<void> {
-  const tabs = await chrome.tabs.query({});
-  for (const tab of tabs) {
-    if (tab.id !== undefined) sendToTab(tab.id, message);
-  }
 }
 
 interface PendingEntry {
@@ -30,7 +36,7 @@ interface PendingEntry {
   timer: ReturnType<typeof setTimeout>;
 }
 
-class MockTransport {
+class MockTransport implements ChatTransport {
   private status: ConnectionStatus = "off";
   private presence = new Map<string, PresenceStatus>();
   private pending = new Map<string, PendingEntry>();
@@ -45,7 +51,7 @@ class MockTransport {
     if (this.status === "connecting" || this.status === "connected") return;
     this.setStatus("connecting");
     for (const contact of DEMO_CONTACTS) this.presence.set(contact.id, "online");
-    await delay(500 + Math.random() * 400);
+    await delay(MOCK_CONNECT_DELAY_MS + Math.random() * MOCK_CONNECT_DELAY_JITTER_MS);
     this.setStatus("connected");
     this.startPresenceFlips();
     this.startDemoMessages();
@@ -74,7 +80,7 @@ class MockTransport {
       this.presence.set(contact.id, next);
       void broadcastToAllTabs({ type: "presence:contact", contactId: contact.id, status: next });
       if (next === "online") this.flushPending(contact.id);
-    }, 25_000 + Math.random() * 15_000);
+    }, MOCK_PRESENCE_FLIP_INTERVAL_MS + Math.random() * MOCK_PRESENCE_FLIP_JITTER_MS);
   }
 
   private startDemoMessages(): void {
@@ -83,7 +89,7 @@ class MockTransport {
       if (this.presence.get(contact.id) !== "online") return;
 
       await broadcastToAllTabs({ type: "chat:remote-typing", contactId: contact.id, state: "typing" });
-      await delay(1200 + Math.random() * 1500);
+      await delay(MOCK_TYPING_DURATION_MS + Math.random() * MOCK_TYPING_DURATION_JITTER_MS);
       await broadcastToAllTabs({ type: "chat:remote-typing", contactId: contact.id, state: "idle" });
 
       const text = DEMO_INCOMING_TEXTS[Math.floor(Math.random() * DEMO_INCOMING_TEXTS.length)];
@@ -92,7 +98,8 @@ class MockTransport {
         contactId: contact.id,
         message: { id: `demo_${Date.now()}`, text, timestamp: Date.now() },
       });
-    }, 30_000 + Math.random() * 20_000);
+      void notifyNewMessage();
+    }, MOCK_DEMO_MESSAGE_INTERVAL_MS + Math.random() * MOCK_DEMO_MESSAGE_JITTER_MS);
   }
 
   private flushPending(contactId: string): void {
@@ -106,7 +113,7 @@ class MockTransport {
 
   private markDelivered(contactId: string, tabId: number, messageId: string): void {
     sendToTab(tabId, { type: "chat:delivered", contactId, messageId });
-    const readDelay = 2000 + Math.random() * 5000;
+    const readDelay = MOCK_READ_DELAY_MS + Math.random() * MOCK_READ_DELAY_JITTER_MS;
     setTimeout(() => {
       sendToTab(tabId, { type: "chat:read", contactId, messageId, readAt: Date.now() });
     }, readDelay);
@@ -116,7 +123,7 @@ class MockTransport {
   async handleOutgoing(contactId: string, messageId: string, text: string, tabId: number): Promise<void> {
     if (this.status !== "connected") return;
 
-    await delay(250 + Math.random() * 350);
+    await delay(MOCK_ACK_DELAY_MS + Math.random() * MOCK_ACK_DELAY_JITTER_MS);
 
     if (text.trim() === "/fail") {
       sendToTab(tabId, { type: "chat:failed", contactId, messageId });
@@ -127,7 +134,7 @@ class MockTransport {
 
     const recipientOnline = this.presence.get(contactId) === "online";
     if (recipientOnline) {
-      await delay(300 + Math.random() * 500);
+      await delay(MOCK_DELIVERY_DELAY_MS + Math.random() * MOCK_DELIVERY_DELAY_JITTER_MS);
       this.markDelivered(contactId, tabId, messageId);
       return;
     }
@@ -135,8 +142,27 @@ class MockTransport {
     const timer = setTimeout(() => {
       this.pending.delete(messageId);
       sendToTab(tabId, { type: "chat:failed", contactId, messageId });
-    }, TTL_MS);
+    }, MOCK_OFFLINE_TTL_MS);
     this.pending.set(messageId, { contactId, tabId, timer });
+  }
+
+  // No real peer in the mock transport to relay these to — a real backend forwards them over the
+  // socket to the other participant (see backendTransport.ts).
+  handleTyping(_contactId: string, _state: TypingState): void {}
+  handleReadAck(_contactId: string, _messageId: string, _readAt: number): void {}
+
+  // Demo contacts are a fixed in-memory list, not backed by any server call — removal is just a
+  // local broadcast so the UI can exercise the same flow as the real backend.
+  async removeContact(contactId: string): Promise<RemoveContactResponse> {
+    this.presence.delete(contactId);
+    await broadcastToAllTabs({ type: "contact:removed", contactId });
+    return { ok: true };
+  }
+
+  // Nothing to drain: sendToTab/broadcastToAllTabs here are purely in-memory demo traffic with no
+  // durable backlog behind them, unlike backendTransport's incoming-inbox.
+  async drainPendingIncoming(): Promise<PendingIncomingEntry[]> {
+    return [];
   }
 }
 

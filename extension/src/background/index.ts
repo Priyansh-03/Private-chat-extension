@@ -1,7 +1,12 @@
+import { USE_REAL_BACKEND } from "../lib/backendConfig";
 import { OVERLAY_HOST_ID } from "../lib/constants";
 import { loadSettings } from "../lib/settingsStore";
 import type { OutboundToBackground } from "../lib/transportProtocol";
+import { backendTransport } from "./backendTransport";
+import type { ChatTransport } from "./chatTransport";
 import { mockTransport } from "./mockTransport";
+
+const transport: ChatTransport = USE_REAL_BACKEND ? backendTransport : mockTransport;
 
 /**
  * Content scripts only auto-run on new page loads after the extension starts, so tabs already
@@ -41,9 +46,9 @@ chrome.runtime.onInstalled.addListener(() => {
 async function syncTransportToSettings(): Promise<void> {
   const settings = await loadSettings();
   if (settings.extensionEnabled) {
-    await mockTransport.start();
+    await transport.start();
   } else {
-    mockTransport.stop();
+    transport.stop();
   }
 }
 
@@ -60,18 +65,53 @@ chrome.runtime.onMessage.addListener((message: OutboundToBackground, sender, sen
     case "chat:outgoing": {
       const tabId = sender.tab?.id;
       if (tabId !== undefined) {
-        void mockTransport.handleOutgoing(message.contactId, message.messageId, message.text, tabId);
+        void transport.handleOutgoing(message.contactId, message.messageId, message.text, tabId);
       }
       return false;
     }
-    case "chat:request-status": {
-      sendResponse({ type: "connection:status", status: mockTransport.getStatus() });
+    case "chat:typing": {
+      void transport.handleTyping(message.contactId, message.state);
       return false;
     }
-    case "chat:typing": {
-      // No real peer in the mock transport to relay this to; a real backend
-      // would forward it over the socket to the other participant.
+    case "chat:read-ack": {
+      void transport.handleReadAck(message.contactId, message.messageId, message.readAt);
       return false;
+    }
+    case "chat:request-status": {
+      sendResponse({ type: "connection:status", status: transport.getStatus() });
+      return false;
+    }
+    case "contact:create-invite": {
+      if (!USE_REAL_BACKEND) {
+        sendResponse({ ok: false, error: "Pairing needs the real backend (USE_REAL_BACKEND build)." });
+        return false;
+      }
+      void backendTransport.createInvite().then(sendResponse);
+      return true;
+    }
+    case "contact:accept-invite": {
+      if (!USE_REAL_BACKEND) {
+        sendResponse({ ok: false, error: "Pairing needs the real backend (USE_REAL_BACKEND build)." });
+        return false;
+      }
+      void backendTransport.acceptInvite(message.code, message.displayName).then(sendResponse);
+      return true;
+    }
+    case "contacts:request-list": {
+      if (!USE_REAL_BACKEND) {
+        sendResponse([]);
+        return false;
+      }
+      void backendTransport.getContactsSnapshot().then(sendResponse);
+      return true;
+    }
+    case "contact:remove": {
+      void transport.removeContact(message.contactId).then(sendResponse);
+      return true;
+    }
+    case "chat:request-pending": {
+      void transport.drainPendingIncoming().then(sendResponse);
+      return true;
     }
     default:
       return false;

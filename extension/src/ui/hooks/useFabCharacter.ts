@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  MASCOT_EMERGE_MS,
+  MASCOT_HIDE_MS,
+  MASCOT_IDLE_MAX_MS,
+  MASCOT_IDLE_MIN_MS,
+  MASCOT_PLAYFUL_IDLE_MS,
+  MESSAGE_NOTICE_DURATION_MS,
+} from "../../lib/constants";
 
 export type FabCharacterPhase = "hidden" | "emerging" | "playful" | "hiding";
 export type PlayfulKind = "idle" | "wave";
-
-const IDLE_MIN_MS = 15000;
-const IDLE_MAX_MS = 30000;
-const EMERGE_MS = 550;
-const PLAYFUL_IDLE_MS = 1000;
-const PLAYFUL_MESSAGE_MS = 4500;
-const HIDE_MS = 500;
 
 function getReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -63,13 +64,13 @@ export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
               phaseRef.current = "hidden";
               setPhase("hidden");
               setPlayfulKind(null);
-            }, HIDE_MS);
+            }, MASCOT_HIDE_MS);
             cycleTimersRef.current.push(toHidden);
           },
-          kind === "wave" ? PLAYFUL_MESSAGE_MS : PLAYFUL_IDLE_MS,
+          kind === "wave" ? MESSAGE_NOTICE_DURATION_MS : MASCOT_PLAYFUL_IDLE_MS,
         );
         cycleTimersRef.current.push(toHiding);
-      }, EMERGE_MS);
+      }, MASCOT_EMERGE_MS);
       cycleTimersRef.current.push(toPlayful);
     },
     [clearCycleTimers],
@@ -107,7 +108,7 @@ export function useFabCharacter(armIdleTimer: boolean): FabCharacterApi {
     if (!armIdleTimer || reducedMotion) return;
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
-      const delay = IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS);
+      const delay = MASCOT_IDLE_MIN_MS + Math.random() * (MASCOT_IDLE_MAX_MS - MASCOT_IDLE_MIN_MS);
       timer = setTimeout(() => {
         if (document.visibilityState === "visible" && phaseRef.current === "hidden") runCycle("idle");
         schedule();

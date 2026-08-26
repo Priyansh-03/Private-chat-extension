@@ -48,6 +48,11 @@ function schedule(ctx: AudioContext, kind: NotificationSound): void {
       tone(ctx, now, 1320, 0, 0.35, 0.045);
       tone(ctx, now, 1980, 0.03, 0.3, 0.02);
       break;
+    case "tick":
+      // Short and quiet on purpose — this plays for a message landing in the conversation
+      // you're already looking at, so it should confirm without interrupting.
+      tone(ctx, now, 700, 0, 0.08, 0.035);
+      break;
   }
 }
 

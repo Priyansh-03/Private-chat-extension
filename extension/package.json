@@ -1,24 +1,36 @@
 {
   "name": "private-chat-overlay",
-  "version": "0.8.0",
+  "version": "0.11.2",
   "description": "Chrome extension: a hidden, hover-reveal 1-to-1 chat overlay for any webpage.",
   "private": true,
   "scripts": {
     "build": "node esbuild.config.mjs",
-    "watch": "node esbuild.config.mjs --watch"
+    "watch": "node esbuild.config.mjs --watch",
+    "build:real-backend": "USE_REAL_BACKEND=true BACKEND_HTTP_URL=http://127.0.0.1:8001 BACKEND_WS_URL=ws://127.0.0.1:8001/ws node esbuild.config.mjs",
+    "watch:real-backend": "USE_REAL_BACKEND=true BACKEND_HTTP_URL=http://127.0.0.1:8001 BACKEND_WS_URL=ws://127.0.0.1:8001/ws node esbuild.config.mjs --watch",
+    "test": "vitest run"
   },
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.6",
     "@types/chrome": "^0.0.270",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.7.0",
     "esbuild": "^0.23.0",
-    "typescript": "^5.5.4"
+    "jsdom": "^24.1.3",
+    "typescript": "^5.5.4",
+    "vitest": "^1.6.1"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
     "emoji-mart": "^5.6.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1"
   }
 }

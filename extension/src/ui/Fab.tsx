@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { FAB_SIZE } from "./hooks/useDraggable";
+import { FAB_SIZE } from "../lib/constants";
 import type { ConnectionStatus } from "../lib/types";
 
 interface FabProps {
