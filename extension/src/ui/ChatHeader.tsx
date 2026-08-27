@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { Contact } from "../lib/types";
 
 interface ChatHeaderProps {
@@ -26,8 +26,17 @@ export function ChatHeader({
   const [draftName, setDraftName] = useState(contact.name);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (editing) inputRef.current?.select();
+  // useLayoutEffect (not useEffect) + explicit .focus() before .select(): a passive effect runs
+  // after paint, on a separate task from the click that set editing=true — that gap is enough
+  // for a host page that aggressively refocuses its own input (e.g. a chat composer's own
+  // blur->refocus handler) to win the race and steal focus back before this ever runs. Composer.tsx
+  // already focuses synchronously the same way after an emoji insert; this closes the same gap
+  // here, where the input doesn't exist until this render commits, so it can't be done inline in
+  // the click handler.
+  useLayoutEffect(() => {
+    if (!editing) return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
   }, [editing]);
 
   // The active contact can change while a rename is in progress (e.g. via keyboard); always
