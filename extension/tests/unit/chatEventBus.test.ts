@@ -123,4 +123,24 @@ describe("ChatController.mergeHistory", () => {
 
     expect(controller.getState().unreadCount).toBe(2);
   });
+
+  it("upgrades an outgoing bubble's tick state when the server copy is further along", () => {
+    const stuck: ChatMessage = { ...outgoing, id: "out-1", deliveryState: "delivered" };
+    const controller = new ChatController(contact, [stuck]);
+
+    controller.mergeHistory([{ ...stuck, deliveryState: "read", readAt: 9999 }]);
+
+    const [msg] = controller.getState().messages;
+    expect(msg.deliveryState).toBe("read");
+    expect(msg.readAt).toBe(9999);
+  });
+
+  it("never moves an outgoing bubble's tick state backwards", () => {
+    const readMsg: ChatMessage = { ...outgoing, id: "out-1", deliveryState: "read", readAt: 5 };
+    const controller = new ChatController(contact, [readMsg]);
+
+    controller.mergeHistory([{ ...readMsg, deliveryState: "delivered", readAt: undefined }]);
+
+    expect(controller.getState().messages[0].deliveryState).toBe("read");
+  });
 });

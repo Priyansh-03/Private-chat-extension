@@ -25,7 +25,7 @@ import type {
   RemoveContactResponse,
   RenameContactResponse,
 } from "../lib/transportProtocol";
-import type { ChatMessage, ConnectionStatus, PresenceStatus, TypingState } from "../lib/types";
+import type { ChatMessage, ConnectionStatus, MessageDeliveryState, PresenceStatus, TypingState } from "../lib/types";
 import { notifyNewMessage } from "./notifications";
 import * as retryQueue from "./pendingRetryQueue";
 import { broadcastToAllTabs } from "./tabMessaging";
@@ -203,12 +203,23 @@ class BackendTransport implements ChatTransport {
       const plaintext =
         this.secretKey && contact ? decryptMessage(entry.ciphertext, entry.nonce, contact.publicKey, this.secretKey) : null;
       if (plaintext === null) continue; // failed to authenticate; skip rather than fail the whole history
+      // Rebuild the tick state from the server's persisted timestamps — a live chat:delivered/
+      // chat:read that was dropped because this device's socket was down is recovered here.
+      const deliveryState: MessageDeliveryState =
+        entry.direction === "outgoing"
+          ? entry.read_at
+            ? "read"
+            : entry.delivered_at
+              ? "delivered"
+              : "server_accepted"
+          : "delivered";
       messages.push({
         id: entry.message_id,
         text: plaintext,
         direction: entry.direction,
         timestamp: new Date(entry.created_at).getTime(),
-        deliveryState: "delivered",
+        deliveryState,
+        readAt: entry.read_at ? new Date(entry.read_at).getTime() : undefined,
         // Always true — this is hydrated past history, not a live arrival, so it shouldn't
         // re-trigger the unread badge/privacy-hover/pulse mechanics that a genuinely new
         // chat:incoming does (see chatEventBus.ts's receiveMessage, which starts unseen).

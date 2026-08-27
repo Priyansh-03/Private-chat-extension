@@ -3,6 +3,16 @@ import { TypedEmitter } from "./emitter";
 import type { OutboundToBackground } from "./transportProtocol";
 import type { ChatBusEvents, ChatMessage, ChatState, Contact, MessageDeliveryState, TypingState } from "./types";
 
+/** Monotonic tick progression — mergeHistory only ever moves an outgoing bubble forward. */
+const DELIVERY_PROGRESS: Record<MessageDeliveryState, number> = {
+  sending: 0,
+  failed: 0,
+  server_accepted: 1,
+  pending_delivery: 1,
+  delivered: 2,
+  read: 3,
+};
+
 let messageSeq = 0;
 function nextId(): string {
   messageSeq += 1;
@@ -163,14 +173,32 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
   }
 
   /** Forced resync from the server's history — adds any messages this tab is missing (by id) and
-   * leaves existing ones untouched, so still-optimistic outgoing bubbles aren't dropped. Used by
-   * the manual refresh button when live sync in a background tab has fallen behind. */
+   * upgrades an existing outgoing bubble's tick state when the server copy is further along (a
+   * chat:delivered/chat:read that was dropped while this tab's socket was down). Still-optimistic
+   * bubbles aren't downgraded. Used by the manual refresh button. */
   mergeHistory(history: ChatMessage[]): void {
+    const remoteById = new Map(history.map((m) => [m.id, m]));
     const known = new Set(this.state.messages.map((m) => m.id));
     const missing = history.filter((m) => !known.has(m.id));
-    if (missing.length === 0) return;
-    const messages = [...this.state.messages, ...missing].sort((a, b) => a.timestamp - b.timestamp);
-    this.setState({ messages, unreadCount: computeUnreadCount(messages) });
+
+    let upgraded = false;
+    const messages = this.state.messages.map((existing) => {
+      const remote = remoteById.get(existing.id);
+      if (
+        !remote ||
+        existing.direction !== "outgoing" ||
+        existing.deliveryState === "failed" ||
+        DELIVERY_PROGRESS[remote.deliveryState] <= DELIVERY_PROGRESS[existing.deliveryState]
+      ) {
+        return existing;
+      }
+      upgraded = true;
+      return { ...existing, deliveryState: remote.deliveryState, readAt: remote.readAt ?? existing.readAt };
+    });
+
+    if (missing.length === 0 && !upgraded) return;
+    const merged = [...messages, ...missing].sort((a, b) => a.timestamp - b.timestamp);
+    this.setState({ messages: merged, unreadCount: computeUnreadCount(merged) });
   }
 
   renameContact(name: string): void {

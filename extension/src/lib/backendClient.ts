@@ -105,6 +105,8 @@ export interface RemoteMessage {
   ciphertext: string;
   nonce: string;
   created_at: string;
+  delivered_at: string | null;
+  read_at: string | null;
 }
 
 export function fetchMessageHistory(authToken: string, peerDeviceId: string): Promise<RemoteMessage[]> {

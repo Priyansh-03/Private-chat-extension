@@ -9,3 +9,5 @@ class MessageOut(BaseModel):
     ciphertext: str
     nonce: str
     created_at: datetime
+    delivered_at: datetime | None = None
+    read_at: datetime | None = None

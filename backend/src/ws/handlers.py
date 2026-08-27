@@ -63,11 +63,30 @@ async def _handle_chat_outgoing(sender_id: str, frame: ChatOutgoingFrame, db: As
     await manager.send(sender_id, {"type": ack_type, "contactId": frame.contactId, "messageId": frame.messageId})
 
 
-async def _handle_delivered_ack(sender_id: str, frame: ChatDeliveredAckFrame, manager: ConnectionManager) -> None:
+async def _handle_delivered_ack(
+    sender_id: str, frame: ChatDeliveredAckFrame, db: AsyncIOMotorDatabase, manager: ConnectionManager
+) -> None:
+    # Persist so the tick survives the original sender being offline for the live relay — their
+    # next GET /messages recovers it. `delivered_at: None` also matches the field being absent.
+    await db.messages.update_one(
+        {
+            "_id": frame.messageId,
+            "sender_device_id": frame.contactId,
+            "recipient_device_id": sender_id,
+            "delivered_at": None,
+        },
+        {"$set": {"delivered_at": datetime.now(timezone.utc)}},
+    )
     await manager.send(frame.contactId, {"type": "chat:delivered", "contactId": sender_id, "messageId": frame.messageId})
 
 
-async def _handle_read_ack(sender_id: str, frame: ChatReadAckFrame, manager: ConnectionManager) -> None:
+async def _handle_read_ack(
+    sender_id: str, frame: ChatReadAckFrame, db: AsyncIOMotorDatabase, manager: ConnectionManager
+) -> None:
+    await db.messages.update_one(
+        {"_id": frame.messageId, "sender_device_id": frame.contactId, "recipient_device_id": sender_id},
+        {"$set": {"read_at": datetime.now(timezone.utc)}},
+    )
     await manager.send(
         frame.contactId,
         {"type": "chat:read", "contactId": sender_id, "messageId": frame.messageId, "readAt": frame.readAt},
@@ -82,8 +101,8 @@ async def dispatch(sender_id: str, frame: InboundFrame, db: AsyncIOMotorDatabase
     if isinstance(frame, ChatOutgoingFrame):
         await _handle_chat_outgoing(sender_id, frame, db, manager)
     elif isinstance(frame, ChatDeliveredAckFrame):
-        await _handle_delivered_ack(sender_id, frame, manager)
+        await _handle_delivered_ack(sender_id, frame, db, manager)
     elif isinstance(frame, ChatReadAckFrame):
-        await _handle_read_ack(sender_id, frame, manager)
+        await _handle_read_ack(sender_id, frame, db, manager)
     elif isinstance(frame, ChatTypingFrame):
         await _handle_typing(sender_id, frame, manager)

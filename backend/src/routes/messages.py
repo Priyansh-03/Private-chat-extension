@@ -40,6 +40,8 @@ async def get_message_history(
             ciphertext=message["ciphertext"],
             nonce=message["nonce"],
             created_at=message["created_at"],
+            delivered_at=message.get("delivered_at"),
+            read_at=message.get("read_at"),
         )
         async for message in cursor
     ]

@@ -74,6 +74,46 @@ def test_message_history_survives_recipient_offline(client):
     assert history[0]["direction"] == "incoming"
 
 
+def test_delivered_and_read_acks_persist_and_surface_in_history(client):
+    # The live chat:delivered / chat:read relay is fire-and-forget — lost if the sender's socket
+    # is down at that instant. Persisting the timestamps means the sender's next GET /messages
+    # rebuilds the correct tick state regardless.
+    a = register_device(client, b"a")
+    b = register_device(client, b"b")
+    _pair(client, a, b)
+
+    with client.websocket_connect("/ws") as ws_b:
+        ws_b.send_json({"type": "auth", "auth_token": b["auth_token"]})
+        with client.websocket_connect("/ws") as ws_a:
+            ws_a.send_json({"type": "auth", "auth_token": a["auth_token"]})
+            ws_a.send_json(
+                {
+                    "type": "chat:outgoing",
+                    "contactId": b["device_id"],
+                    "messageId": "msg-ticks",
+                    "ciphertext": "cipher",
+                    "nonce": "nonce",
+                }
+            )
+            drain_until(ws_b, "chat:incoming")
+            drain_until(ws_a, "chat:ack")
+
+            before = client.get(f"/api/v1/messages/{b['device_id']}", headers=auth_headers(a["auth_token"])).json()
+            assert before[0]["delivered_at"] is None and before[0]["read_at"] is None
+
+            ws_b.send_json({"type": "chat:delivered-ack", "contactId": a["device_id"], "messageId": "msg-ticks"})
+            drain_until(ws_a, "chat:delivered")
+            ws_b.send_json({"type": "chat:read-ack", "contactId": a["device_id"], "messageId": "msg-ticks", "readAt": 1})
+            drain_until(ws_a, "chat:read")
+
+            after = client.get(f"/api/v1/messages/{b['device_id']}", headers=auth_headers(a["auth_token"])).json()
+            assert after[0]["delivered_at"] is not None
+            assert after[0]["read_at"] is not None
+
+            ws_a.close()
+        ws_b.close()
+
+
 def test_nothing_deleted_after_full_flow(client):
     a = register_device(client, b"a")
     b = register_device(client, b"b")
