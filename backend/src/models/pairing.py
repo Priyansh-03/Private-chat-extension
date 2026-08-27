@@ -19,6 +19,10 @@ class AcceptOut(BaseModel):
     display_name: str
 
 
+class RenameContactIn(BaseModel):
+    display_name: str
+
+
 class ContactOut(BaseModel):
     device_id: str
     display_name: str

@@ -171,6 +171,58 @@ def test_delete_contact_requires_auth(client):
     assert response.status_code in (401, 422)
 
 
+def test_rename_contact_persists_across_a_fresh_contacts_fetch(client):
+    a = register_device(client, b"a")
+    b = register_device(client, b"b")
+    _pair(client, a, b, display_name="Alex")
+
+    response = client.patch(
+        f"/api/v1/contacts/{b['device_id']}",
+        json={"display_name": "Alexander"},
+        headers=auth_headers(a["auth_token"]),
+    )
+    assert response.status_code == 204
+
+    a_contacts = client.get("/api/v1/contacts", headers=auth_headers(a["auth_token"])).json()
+    assert a_contacts[0]["display_name"] == "Alexander"
+
+    # b's own row (a separate document — b's name for a, set during accept) is untouched —
+    # rename is one-sided, like disconnect.
+    b_contacts = client.get("/api/v1/contacts", headers=auth_headers(b["auth_token"])).json()
+    assert b_contacts[0]["display_name"] == "Alex"
+
+
+def test_rename_contact_rejects_empty_name(client):
+    a = register_device(client, b"a")
+    b = register_device(client, b"b")
+    _pair(client, a, b)
+
+    response = client.patch(
+        f"/api/v1/contacts/{b['device_id']}",
+        json={"display_name": "   "},
+        headers=auth_headers(a["auth_token"]),
+    )
+    assert response.status_code == 400
+
+
+def test_rename_unknown_contact_returns_404(client):
+    a = register_device(client, b"a")
+    b = register_device(client, b"b")
+    # deliberately not paired
+
+    response = client.patch(
+        f"/api/v1/contacts/{b['device_id']}",
+        json={"display_name": "New Name"},
+        headers=auth_headers(a["auth_token"]),
+    )
+    assert response.status_code == 404
+
+
+def test_rename_contact_requires_auth(client):
+    response = client.patch("/api/v1/contacts/some-device-id", json={"display_name": "New Name"})
+    assert response.status_code in (401, 422)
+
+
 def test_repairing_after_delete_restores_contact(client):
     a = register_device(client, b"a")
     b = register_device(client, b"b")

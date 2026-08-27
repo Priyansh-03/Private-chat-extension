@@ -27,6 +27,9 @@ already uniquely identifies the device.
   *other* side has disconnected you — your own row (and thus this list entry) is
   untouched, but chat delivery and presence to/from that peer are blocked (see
   `DELETE /contacts` and the WS section below).
+- `PATCH /contacts/{device_id}` — auth required, body `{"display_name": str}` → `204`.
+  Renames the caller's own copy of that contact (one-sided, like `DELETE` — the peer's row
+  is untouched). 400 if the trimmed name is empty; 404 if the caller had no such contact.
 - `DELETE /contacts/{device_id}` — auth required → `204`. Only the caller's own contact
   doc is soft-deleted (`deleted_at` set, row kept for the unique index) — the peer's row
   is untouched, so it stays in *their* `GET /contacts` list, just with `connected: false`.

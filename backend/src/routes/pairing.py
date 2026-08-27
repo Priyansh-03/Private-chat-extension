@@ -7,7 +7,7 @@ from pymongo.errors import DuplicateKeyError
 
 from constants import INVITE_CODE_ALPHABET, INVITE_CODE_GENERATION_ATTEMPTS, INVITE_CODE_LENGTH
 from src.config import settings
-from src.models.pairing import AcceptIn, AcceptOut, ContactOut, InviteOut
+from src.models.pairing import AcceptIn, AcceptOut, ContactOut, InviteOut, RenameContactIn
 from src.routes.deps import get_current_device_id, get_db, get_manager
 from src.ws.manager import ConnectionManager
 
@@ -133,6 +133,27 @@ async def list_contacts(
             )
         )
     return contacts
+
+
+@router.patch("/contacts/{peer_device_id}", status_code=204)
+async def rename_contact(
+    peer_device_id: str,
+    body: RenameContactIn,
+    device_id: str = Depends(get_current_device_id),
+    db: AsyncIOMotorDatabase = Depends(get_db),
+) -> None:
+    # display_name is per-owner (each side's own local label for the other), same field
+    # pairing/accept sets initially — this just lets it be changed later and have that change
+    # survive across devices/reinstalls instead of living only in this browser's local storage.
+    name = body.display_name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+    result = await db.contacts.update_one(
+        {"owner_device_id": device_id, "peer_device_id": peer_device_id},
+        {"$set": {"display_name": name}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Contact not found")
 
 
 @router.delete("/contacts/{peer_device_id}", status_code=204)
