@@ -69,6 +69,13 @@ async def ws_endpoint(websocket: WebSocket) -> None:
                 raw = await websocket.receive_json()
             except ValueError:
                 continue  # non-JSON frame; ignore and keep listening, same as a bad-schema one
+            # Transport-level, not a chat frame — handled before the InboundFrame union so it
+            # doesn't need contact validation or dispatch. Client sends this periodically to
+            # detect a half-dead connection (see extension/src/background/backendTransport.ts);
+            # this reply is all it needs.
+            if isinstance(raw, dict) and raw.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+                continue
             try:
                 frame = inbound_frame_adapter.validate_python(raw)
             except ValidationError:

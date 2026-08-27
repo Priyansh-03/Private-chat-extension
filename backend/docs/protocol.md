@@ -78,6 +78,13 @@ treat "connection stays open" as success and start sending/receiving normally.
 | `chat:delivered-ack` | `contactId, messageId` |
 | `chat:read-ack` | `contactId, messageId, readAt` |
 | `chat:typing` | `contactId, state: "idle"\|"typing"` |
+| `ping` | — → replies `{"type": "pong"}` on the same socket |
+
+`ping`/`pong` are transport-level, not chat frames — handled before the `InboundFrame`
+union, no auth/contact checks beyond the connection already being authenticated. The
+browser `WebSocket` API exposes no native ping/pong, so this exists for the client to
+detect a half-dead connection itself (missed pong within a timeout ⇒ treat as closed and
+reconnect) rather than waiting indefinitely on a socket that looks open but isn't.
 
 `contactId` is always the *other device's* `device_id`. `chat:outgoing` is silently
 dropped unless *both* the sender still has `contactId` as an active contact *and*

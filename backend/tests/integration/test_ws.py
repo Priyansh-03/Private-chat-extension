@@ -28,6 +28,15 @@ def test_ws_rejects_malformed_auth_frame(client):
             ws.receive_json()
 
 
+def test_ping_gets_a_pong(client):
+    a = register_device(client, b"a")
+    with client.websocket_connect("/ws") as ws:
+        ws.send_json({"type": "auth", "auth_token": a["auth_token"]})
+        ws.send_json({"type": "ping"})
+        assert ws.receive_json() == {"type": "pong"}
+        ws.close()
+
+
 def test_chat_outgoing_relayed_live_when_recipient_connected(client):
     a = register_device(client, b"a")
     b = register_device(client, b"b")
