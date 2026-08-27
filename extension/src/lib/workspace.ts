@@ -211,7 +211,7 @@ export class ChatWorkspace extends TypedEmitter<WorkspaceEvents> {
       case "chat:incoming": {
         const controller = this.controllers.get(event.contactId);
         if (!controller) break;
-        controller.receiveMessage(event.message.text, event.message.id);
+        controller.receiveMessage(event.message.text, event.message.id, event.message.timestamp);
         break;
       }
       case "chat:remote-typing":

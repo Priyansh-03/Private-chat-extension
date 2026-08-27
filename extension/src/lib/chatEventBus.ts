@@ -22,6 +22,15 @@ export function getUnseenIncoming(messages: ChatMessage[]): ChatMessage[] {
   return messages.filter((m) => m.direction === "incoming" && !m.seen);
 }
 
+/** Inserts in timestamp order rather than trusting call order to already match chronology — a
+ * live chat:incoming and a just-hydrated history batch (or a message replayed from
+ * workspace.ts's pendingEvents buffer) can otherwise land in whatever order their async work
+ * happened to resolve in. Array.prototype.sort is stable, so an exact-same-millisecond tie falls
+ * back to insertion order rather than jittering on every re-render. */
+function insertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {
+  return [...messages, message].sort((a, b) => a.timestamp - b.timestamp);
+}
+
 /** One conversation, in-memory only. Outbound via sendMessage; inbound via the apply-prefixed methods and markSeen, called by ChatWorkspace. */
 export class ChatController extends TypedEmitter<ChatBusEvents> {
   private state: ChatState;
@@ -70,7 +79,7 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
       deliveryState: "sending",
       seen: true,
     };
-    const messages = [...this.state.messages, message];
+    const messages = insertMessage(this.state.messages, message);
     this.setState({ messages, draft: "" });
     this.stopTyping();
     this.emit("message:outgoing", message);
@@ -137,18 +146,22 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
 
   /** messageId is not deduped server-side (see backend/docs/protocol.md) — a resend after a
    * dropped ack, or a retry racing a live delivery, can legitimately reach here twice for the
-   * same id. Silently drop the repeat rather than rendering a duplicate bubble. */
-  receiveMessage(text: string, id: string): void {
+   * same id. Silently drop the repeat rather than rendering a duplicate bubble.
+   *
+   * timestamp comes from the caller (the server's own created_at for a live message, or
+   * whatever a history hydration supplied) rather than Date.now() here — this tab's local
+   * processing time is not when the message actually happened. */
+  receiveMessage(text: string, id: string, timestamp: number): void {
     if (this.state.messages.some((m) => m.id === id)) return;
     const message: ChatMessage = {
       id,
       text,
       direction: "incoming",
-      timestamp: Date.now(),
+      timestamp,
       deliveryState: "delivered",
       seen: false,
     };
-    const messages = [...this.state.messages, message];
+    const messages = insertMessage(this.state.messages, message);
     this.setState({ messages, unreadCount: computeUnreadCount(messages) });
     this.emit("message:incoming", message);
   }

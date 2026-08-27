@@ -60,7 +60,10 @@ def test_chat_outgoing_relayed_live_when_recipient_connected(client):
 
             incoming = drain_until(ws_b, "chat:incoming")
             assert incoming["contactId"] == a["device_id"]
-            assert incoming["message"] == {"id": "msg-1", "ciphertext": "cipher", "nonce": "nonce"}
+            assert incoming["message"]["id"] == "msg-1"
+            assert incoming["message"]["ciphertext"] == "cipher"
+            assert incoming["message"]["nonce"] == "nonce"
+            assert incoming["message"]["createdAt"]  # ISO timestamp, same one persisted to db.messages
 
             ack = drain_until(ws_a, "chat:ack")
             assert ack == {"type": "chat:ack", "contactId": b["device_id"], "messageId": "msg-1"}

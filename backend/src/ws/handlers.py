@@ -23,6 +23,11 @@ async def _handle_chat_outgoing(sender_id: str, frame: ChatOutgoingFrame, db: As
     if not await _is_contact(db, sender_id, frame.contactId) or not await _is_contact(db, frame.contactId, sender_id):
         return
 
+    # One timestamp, reused for both the persisted doc and the live relay below, so a client
+    # sorting by it never sees the same message land at two different times depending on whether
+    # it arrived live or via a later GET /messages hydration.
+    created_at = datetime.now(timezone.utc)
+
     # Persisted as ciphertext only — the server never has the key material to decrypt this,
     # only the two devices do (see crypto.ts). This is the durable copy every tab/device reads
     # history from (GET /messages/{contact_id}), replacing the old "nothing was queued" behavior
@@ -35,7 +40,7 @@ async def _handle_chat_outgoing(sender_id: str, frame: ChatOutgoingFrame, db: As
                 "recipient_device_id": frame.contactId,
                 "ciphertext": frame.ciphertext,
                 "nonce": frame.nonce,
-                "created_at": datetime.now(timezone.utc),
+                "created_at": created_at,
             }
         )
     except DuplicateKeyError:
@@ -46,7 +51,12 @@ async def _handle_chat_outgoing(sender_id: str, frame: ChatOutgoingFrame, db: As
         {
             "type": "chat:incoming",
             "contactId": sender_id,
-            "message": {"id": frame.messageId, "ciphertext": frame.ciphertext, "nonce": frame.nonce},
+            "message": {
+                "id": frame.messageId,
+                "ciphertext": frame.ciphertext,
+                "nonce": frame.nonce,
+                "createdAt": created_at.isoformat(),
+            },
         },
     )
     ack_type = "chat:ack" if delivered_live else "chat:pending"

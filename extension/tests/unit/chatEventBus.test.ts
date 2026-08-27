@@ -52,17 +52,32 @@ describe("ChatController.setConnected", () => {
 describe("ChatController.receiveMessage", () => {
   it("dedupes a repeated messageId instead of rendering it twice", () => {
     const controller = new ChatController(contact, []);
-    controller.receiveMessage("hello", "msg-1");
-    controller.receiveMessage("hello", "msg-1"); // e.g. a resend after a dropped ack
+    controller.receiveMessage("hello", "msg-1", 1000);
+    controller.receiveMessage("hello", "msg-1", 1000); // e.g. a resend after a dropped ack
 
     expect(controller.getState().messages).toHaveLength(1);
   });
 
   it("accepts two different messageIds normally", () => {
     const controller = new ChatController(contact, []);
-    controller.receiveMessage("hi", "msg-1");
-    controller.receiveMessage("there", "msg-2");
+    controller.receiveMessage("hi", "msg-1", 1000);
+    controller.receiveMessage("there", "msg-2", 2000);
 
     expect(controller.getState().messages).toHaveLength(2);
+  });
+
+  it("uses the passed timestamp, not wall-clock-at-call-time", () => {
+    const controller = new ChatController(contact, []);
+    controller.receiveMessage("old news", "msg-1", 12345);
+
+    expect(controller.getState().messages[0].timestamp).toBe(12345);
+  });
+
+  it("sorts by timestamp on insert, regardless of call order", () => {
+    const controller = new ChatController(contact, []);
+    controller.receiveMessage("second", "msg-2", 2000);
+    controller.receiveMessage("first", "msg-1", 1000); // arrives/replays after msg-2, but is older
+
+    expect(controller.getState().messages.map((m) => m.text)).toEqual(["first", "second"]);
   });
 });

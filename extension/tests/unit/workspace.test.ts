@@ -50,7 +50,7 @@ describe("ChatWorkspace", () => {
     workspace.onIncoming(callback);
 
     workspace.addContact({ contact: contact("a") });
-    workspace.getController("a")!.receiveMessage("hi", "msg-1");
+    workspace.getController("a")!.receiveMessage("hi", "msg-1", Date.now());
 
     expect(callback).toHaveBeenCalledWith("a");
   });

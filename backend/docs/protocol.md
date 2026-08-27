@@ -98,7 +98,7 @@ which case it was).
 |---|---|---|
 | `chat:ack` | `contactId, messageId` | recipient was online, message relayed live |
 | `chat:pending` | `contactId, messageId` | recipient offline; the message *is* durably stored (see `GET /messages`) — this just tells the sender it wasn't relayed live, not that it was lost. The recipient picks it up next time they (or any of their tabs) fetch history. |
-| `chat:incoming` | `contactId, message: {id, ciphertext, nonce}` | |
+| `chat:incoming` | `contactId, message: {id, ciphertext, nonce, createdAt}` | `createdAt` is the exact same timestamp persisted to `db.messages` for this same message — a client sorting by it gets consistent order whether the message arrived live or via a later `GET /messages` hydration |
 | `chat:delivered` | `contactId, messageId` | relayed from the recipient's `chat:delivered-ack` |
 | `chat:read` | `contactId, messageId, readAt` | relayed from the recipient's `chat:read-ack` |
 | `chat:remote-typing` | `contactId, state` | |

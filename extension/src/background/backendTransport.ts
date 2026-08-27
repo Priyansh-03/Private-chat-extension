@@ -44,7 +44,7 @@ interface ContactCacheEntry {
 type WireFrame =
   | { type: "chat:ack"; contactId: string; messageId: string }
   | { type: "chat:pending"; contactId: string; messageId: string }
-  | { type: "chat:incoming"; contactId: string; message: { id: string; ciphertext: string; nonce: string } }
+  | { type: "chat:incoming"; contactId: string; message: { id: string; ciphertext: string; nonce: string; createdAt: string } }
   | { type: "chat:delivered"; contactId: string; messageId: string }
   | { type: "chat:read"; contactId: string; messageId: string; readAt: number }
   | { type: "chat:remote-typing"; contactId: string; state: TypingState }
@@ -441,7 +441,10 @@ class BackendTransport implements ChatTransport {
         // No client-side durability buffer needed anymore — the server persisted this the moment
         // it accepted the chat:outgoing (see backend/src/ws/handlers.py), so a tab that wasn't
         // open to catch this live broadcast just picks it up via GET /messages on its next mount.
-        const message = { id: frame.message.id, text: plaintext, timestamp: Date.now() };
+        // The server's own timestamp, not local receipt time — the same value it persisted to
+        // db.messages, so this message sorts consistently whether it's applied live here or
+        // picked up later via GET /messages hydration (see chatEventBus.ts's stable sort).
+        const message = { id: frame.message.id, text: plaintext, timestamp: new Date(frame.message.createdAt).getTime() };
         await broadcastToAllTabs({ type: "chat:incoming", contactId: frame.contactId, message });
         void notifyNewMessage();
         return;
