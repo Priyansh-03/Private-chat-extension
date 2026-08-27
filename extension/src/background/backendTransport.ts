@@ -69,8 +69,26 @@ class BackendTransport implements ChatTransport {
   async start(): Promise<void> {
     if (!this.stopped) return;
     this.stopped = false;
-    await this.ensureIdentity();
-    await this.refreshContacts();
+    await this.bootstrap();
+  }
+
+  // Callers (background/index.ts) invoke start() as `void syncTransportToSettings()`, with no
+  // .catch — a register/list-contacts failure here (e.g. backend unreachable at startup) would
+  // otherwise surface as an unhandled promise rejection and leave the transport stuck, never
+  // retrying. Retries with the same backoff as a dropped WS connection instead.
+  private async bootstrap(): Promise<void> {
+    if (this.stopped) return;
+    try {
+      await this.ensureIdentity();
+      await this.refreshContacts();
+    } catch {
+      this.setStatus("problem");
+      const backoff = WS_RECONNECT_BASE_DELAY_MS * 2 ** this.reconnectAttempt;
+      const delay = Math.min(backoff, WS_RECONNECT_MAX_DELAY_MS) + Math.random() * WS_RECONNECT_JITTER_MS;
+      this.reconnectAttempt += 1;
+      this.reconnectTimer = setTimeout(() => this.bootstrap(), delay);
+      return;
+    }
     this.connect();
   }
 
