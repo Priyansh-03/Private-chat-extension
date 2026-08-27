@@ -53,3 +53,16 @@ export const MOCK_OFFLINE_TTL_MS = 45_000;
 export const WS_RECONNECT_BASE_DELAY_MS = 1_000;
 export const WS_RECONNECT_MAX_DELAY_MS = 30_000;
 export const WS_RECONNECT_JITTER_MS = 500;
+
+// Browser WebSocket has no JS-visible native ping/pong — this app-level pair is what actually
+// detects a zombie connection (readyState still OPEN, but nothing's really flowing) instead of
+// waiting indefinitely. Comfortably under Chrome's ~30s MV3 service-worker idle window.
+export const WS_PING_INTERVAL_MS = 20_000;
+export const WS_PONG_TIMEOUT_MS = 15_000;
+
+// ---------- Service worker keepalive (background/index.ts) ----------
+// A chrome.alarms firing is one of the few things guaranteed to wake an idle-killed MV3 service
+// worker back up — this is a self-healing check, not a guarantee the SW never dies between
+// firings. 1 is the minimum periodInMinutes Chrome honors for a packed extension.
+export const KEEPALIVE_ALARM_NAME = "pco-keepalive";
+export const KEEPALIVE_ALARM_PERIOD_MINUTES = 1;

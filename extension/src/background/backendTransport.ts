@@ -9,7 +9,13 @@ import {
   listContacts,
   registerDevice,
 } from "../lib/backendClient";
-import { WS_RECONNECT_BASE_DELAY_MS, WS_RECONNECT_JITTER_MS, WS_RECONNECT_MAX_DELAY_MS } from "../lib/constants";
+import {
+  WS_PING_INTERVAL_MS,
+  WS_PONG_TIMEOUT_MS,
+  WS_RECONNECT_BASE_DELAY_MS,
+  WS_RECONNECT_JITTER_MS,
+  WS_RECONNECT_MAX_DELAY_MS,
+} from "../lib/constants";
 import { decryptMessage, encryptMessage, loadOrCreateKeyPair } from "../lib/crypto";
 import { loadDeviceIdentity, saveDeviceIdentity, type DeviceIdentity } from "../lib/deviceIdentity";
 import type {
@@ -44,7 +50,8 @@ type WireFrame =
   | { type: "chat:remote-typing"; contactId: string; state: TypingState }
   | { type: "presence:contact"; contactId: string; status: PresenceStatus }
   | { type: "contact:added"; contactId: string; name: string; publicKey: string }
-  | { type: "contact:disconnected"; contactId: string };
+  | { type: "contact:disconnected"; contactId: string }
+  | { type: "pong" };
 
 class BackendTransport implements ChatTransport {
   private status: ConnectionStatus = "off";
@@ -55,6 +62,11 @@ class BackendTransport implements ChatTransport {
   private contacts = new Map<string, ContactCacheEntry>();
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Sends a ping every WS_PING_INTERVAL_MS while connected; pongTimer fires if no pong comes
+   * back in time, meaning the socket is a zombie (readyState still OPEN, nothing actually
+   * flowing) — closing it routes through the normal close handler's cleanup + reconnect. */
+  private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private pongTimer: ReturnType<typeof setTimeout> | null = null;
   /** Guards concurrent callers (e.g. opening a chat panel and creating an invite at the same
    * moment) from each independently registering a *different* device — see ensureIdentity(). */
   private identityPromise: Promise<void> | null = null;
@@ -97,6 +109,7 @@ class BackendTransport implements ChatTransport {
     this.stopped = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
+    this.stopPing();
     this.ws?.close();
     this.ws = null;
     this.inFlight.clear();
@@ -296,6 +309,7 @@ class BackendTransport implements ChatTransport {
       this.reconnectAttempt = 0;
       this.setStatus("connected");
       void this.flushPending();
+      this.startPing(ws);
     });
 
     ws.addEventListener("message", (event) => {
@@ -305,6 +319,7 @@ class BackendTransport implements ChatTransport {
     ws.addEventListener("close", () => {
       if (this.ws !== ws) return; // superseded by a newer connection attempt
       this.ws = null;
+      this.stopPing();
       // Nothing is actually in flight once the connection that would carry an ack is gone —
       // otherwise a message sent right before a drop would never be eligible for resend after
       // reconnecting, since flushPending() would keep skipping it as "already in flight" forever.
@@ -319,6 +334,29 @@ class BackendTransport implements ChatTransport {
     const delay = Math.min(backoff, WS_RECONNECT_MAX_DELAY_MS) + Math.random() * WS_RECONNECT_JITTER_MS;
     this.reconnectAttempt += 1;
     this.reconnectTimer = setTimeout(() => this.connect(), delay);
+  }
+
+  // ---------- ping/pong keepalive ----------
+
+  private startPing(ws: WebSocket): void {
+    this.pingTimer = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) return; // close handler will clean up shortly
+      ws.send(JSON.stringify({ type: "ping" }));
+      if (this.pongTimer) clearTimeout(this.pongTimer);
+      this.pongTimer = setTimeout(() => {
+        // No pong in time — a zombie connection, not a clean close, so nothing else would ever
+        // notice on its own. Close it explicitly to route through the normal close-handler
+        // cleanup (inFlight.clear() + scheduleReconnect()) instead of a parallel dead-path.
+        ws.close();
+      }, WS_PONG_TIMEOUT_MS);
+    }, WS_PING_INTERVAL_MS);
+  }
+
+  private stopPing(): void {
+    if (this.pingTimer) clearInterval(this.pingTimer);
+    if (this.pongTimer) clearTimeout(this.pongTimer);
+    this.pingTimer = null;
+    this.pongTimer = null;
   }
 
   private setStatus(status: ConnectionStatus): void {
@@ -433,6 +471,11 @@ class BackendTransport implements ChatTransport {
         const contact = this.contacts.get(frame.contactId);
         if (contact) contact.connected = false;
         await broadcastToAllTabs({ type: "contact:disconnected", contactId: frame.contactId });
+        return;
+      }
+      case "pong": {
+        if (this.pongTimer) clearTimeout(this.pongTimer);
+        this.pongTimer = null;
         return;
       }
     }

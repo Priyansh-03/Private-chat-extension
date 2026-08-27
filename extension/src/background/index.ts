@@ -1,5 +1,5 @@
 import { USE_REAL_BACKEND } from "../lib/backendConfig";
-import { OVERLAY_HOST_ID } from "../lib/constants";
+import { KEEPALIVE_ALARM_NAME, KEEPALIVE_ALARM_PERIOD_MINUTES, OVERLAY_HOST_ID } from "../lib/constants";
 import { loadSettings } from "../lib/settingsStore";
 import type { OutboundToBackground } from "../lib/transportProtocol";
 import { backendTransport } from "./backendTransport";
@@ -58,6 +58,17 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === "local" && changes.pco_settings) {
     void syncTransportToSettings();
   }
+});
+
+// A firing alarm is one of the few things guaranteed to wake this service worker back up if MV3
+// had idle-killed it (~30s after its last event, with nothing else keeping it alive) — re-running
+// this module's top-level code, including the syncTransportToSettings() call above, is what
+// actually reconnects in that case. The explicit call here is defense-in-depth for the case where
+// the worker never got killed but the connection needs a nudge anyway (transport.start() is a
+// no-op if already running, so this is safe to call unconditionally).
+chrome.alarms.create(KEEPALIVE_ALARM_NAME, { periodInMinutes: KEEPALIVE_ALARM_PERIOD_MINUTES });
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === KEEPALIVE_ALARM_NAME) void syncTransportToSettings();
 });
 
 chrome.runtime.onMessage.addListener((message: OutboundToBackground, sender, sendResponse) => {

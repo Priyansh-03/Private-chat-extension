@@ -3,7 +3,7 @@
   "name": "Private Chat Overlay",
   "version": "0.11.2",
   "description": "A hidden, privacy-first 1-to-1 chat layer that sits on top of any webpage.",
-  "permissions": ["storage", "scripting", "notifications"],
+  "permissions": ["storage", "scripting", "notifications", "alarms"],
   "host_permissions": ["<all_urls>"],
   "icons": {
     "16": "icons/icon16.png",
