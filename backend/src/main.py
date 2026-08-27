@@ -7,6 +7,7 @@ from src.config import settings
 from src.db.mongo import create_client, ensure_indexes, get_database, seed_default_config
 from src.routes import config as config_routes
 from src.routes import devices as device_routes
+from src.routes import messages as message_routes
 from src.routes import pairing as pairing_routes
 from src.ws.manager import ConnectionManager
 from src.ws.router import router as ws_router
@@ -39,5 +40,6 @@ app.add_middleware(
 
 app.include_router(device_routes.router)
 app.include_router(pairing_routes.router)
+app.include_router(message_routes.router)
 app.include_router(config_routes.router)
 app.include_router(ws_router)

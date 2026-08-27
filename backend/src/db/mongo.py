@@ -16,6 +16,8 @@ async def ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.devices.create_index("auth_token_hash", unique=True)
     await db.contacts.create_index([("owner_device_id", 1), ("peer_device_id", 1)], unique=True)
     await db.contacts.create_index("peer_device_id")
+    await db.messages.create_index([("sender_device_id", 1), ("recipient_device_id", 1), ("created_at", 1)])
+    await db.messages.create_index([("recipient_device_id", 1), ("sender_device_id", 1), ("created_at", 1)])
 
 
 async def seed_default_config(db: AsyncIOMotorDatabase) -> None:

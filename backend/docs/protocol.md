@@ -4,6 +4,14 @@ This documents the REST + WebSocket contract as implemented, for the future exte
 pass that replaces `mockTransport.ts`. See `../../start-preparing-how-to-virtual-scone.md`
 (the planning doc) for the full design rationale.
 
+**Message persistence**: every `chat:outgoing` is durably stored (`GET /messages/{id}` reads
+it back) as ciphertext + nonce only — the server never has the key material to decrypt it,
+only the two devices do. This is what lets every tab (and every device) hydrate the same
+conversation instead of each tab keeping its own independent in-memory copy. Earlier versions
+of this backend stored nothing at all; that was revisited once cross-tab/cross-device sync
+needed a real source of truth to hydrate from, without weakening the "server can't read your
+messages" guarantee — see `backend/tests/integration/test_message_persistence.py`.
+
 One deliberate deviation from the original plan: **auth resolves the device from the
 bearer token alone** (via a unique index on `devices.auth_token_hash`), both for REST
 and for the WS auth frame. The plan's draft WS auth frame included `device_id`
@@ -40,6 +48,12 @@ already uniquely identifies the device.
   online when this happens, they also get a live `contact:disconnected` push (see WS
   section). 404 if the caller had no such contact. A later invite/accept between the
   same two devices revives both rows (clears `deleted_at` on each) instead of erroring.
+- `GET /messages/{device_id}` — auth required → `[{"message_id", "direction":
+  "outgoing"|"incoming", "ciphertext", "nonce", "created_at"}]`, chronological, capped at
+  `MESSAGE_HISTORY_LIMIT` most recent (`constants.py`). Scoped to the caller by construction —
+  every match has the caller's own device_id on one side, so this can only ever return a
+  conversation the caller actually took part in. Survives either side disconnecting (reads
+  `db.messages` only, never `db.contacts`).
 - `GET /config` — no auth → `{"quick_replies": [str], "message_char_limit": int,
   "feature_flags": {str: bool}, "invite_code_ttl_minutes": int}`.
 
@@ -76,7 +90,7 @@ which case it was).
 | type | fields | meaning |
 |---|---|---|
 | `chat:ack` | `contactId, messageId` | recipient was online, message relayed live |
-| `chat:pending` | `contactId, messageId` | recipient offline; **nothing was queued** — hold the message locally and retry on the next `presence:contact online` for that contact |
+| `chat:pending` | `contactId, messageId` | recipient offline; the message *is* durably stored (see `GET /messages`) — this just tells the sender it wasn't relayed live, not that it was lost. The recipient picks it up next time they (or any of their tabs) fetch history. |
 | `chat:incoming` | `contactId, message: {id, ciphertext, nonce}` | |
 | `chat:delivered` | `contactId, messageId` | relayed from the recipient's `chat:delivered-ack` |
 | `chat:read` | `contactId, messageId, readAt` | relayed from the recipient's `chat:read-ack` |
@@ -85,5 +99,8 @@ which case it was).
 | `contact:added` | `contactId, name, publicKey` | pushed to the inviter, live, if online when their invite is accepted |
 | `contact:disconnected` | `contactId` | pushed to the peer, live, if online when `contactId` calls `DELETE /contacts` on them |
 
-There is no connect-time message flush and no `connection:status` frame — see the
-planning doc's "Chat history & lazy loading" and "WebSocket protocol" sections for why.
+There is still no connect-time message flush over the WS itself and no `connection:status`
+frame — history now comes from `GET /messages/{device_id}` (a client fetches it explicitly
+whenever it needs to hydrate a conversation) rather than the server pushing a backlog on
+connect. See the planning doc's "WebSocket protocol" section for the connection-status
+rationale.
