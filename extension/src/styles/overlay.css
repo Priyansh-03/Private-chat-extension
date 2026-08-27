@@ -886,6 +886,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  pointer-events: auto;
   padding: 6px;
   background: var(--pco-panel-bg);
 }
@@ -1009,6 +1010,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  pointer-events: auto;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -1229,6 +1231,10 @@
 
 .pco-emoji-popover {
   position: fixed;
+  /* .pco-portal-layer (its actual DOM parent — it's portaled, not nested under .pco-panel) sets
+     pointer-events: none for the rest of the viewport; without this override every click and
+     scroll here falls through to whatever's on the actual page underneath. */
+  pointer-events: auto;
   border-radius: 10px;
   box-shadow: var(--pco-shadow);
   /* emoji-mart's picker has no explicit height of its own — without one here it collapses to
@@ -1364,6 +1370,7 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  pointer-events: auto;
   padding: 8px 12px;
   display: flex;
   flex-direction: column;
