@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Contact } from "../lib/types";
+import { RefreshButton } from "./RefreshButton";
 
 interface ChatHeaderProps {
   contact: Contact;
@@ -9,6 +10,8 @@ interface ChatHeaderProps {
   onBack?: () => void;
   onMinimize: () => void;
   onClose: () => void;
+  onRefresh: () => void;
+  refreshing: boolean;
   /** Omitted (e.g. for the "Contacts" list header) to hide the rename affordance entirely. */
   onRenameContact?: (name: string) => void;
 }
@@ -20,6 +23,8 @@ export function ChatHeader({
   onBack,
   onMinimize,
   onClose,
+  onRefresh,
+  refreshing,
   onRenameContact,
 }: ChatHeaderProps) {
   const [editing, setEditing] = useState(false);
@@ -108,6 +113,7 @@ export function ChatHeader({
         </div>
       </div>
       <div className="pco-header__actions">
+        <RefreshButton onRefresh={onRefresh} refreshing={refreshing} />
         <button type="button" className="pco-header__btn" aria-label="Minimize" onClick={onMinimize}>
           −
         </button>

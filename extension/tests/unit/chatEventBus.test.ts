@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ChatController } from "../../src/lib/chatEventBus";
-import type { Contact } from "../../src/lib/types";
+import type { ChatMessage, Contact } from "../../src/lib/types";
 
 const contact: Contact = { id: "a", name: "Alex", status: "offline", connected: true };
 
@@ -79,5 +79,48 @@ describe("ChatController.receiveMessage", () => {
     controller.receiveMessage("first", "msg-1", 1000); // arrives/replays after msg-2, but is older
 
     expect(controller.getState().messages.map((m) => m.text)).toEqual(["first", "second"]);
+  });
+});
+
+describe("ChatController.mergeHistory", () => {
+  const outgoing: ChatMessage = {
+    id: "local-1",
+    text: "mine",
+    direction: "outgoing",
+    timestamp: 1500,
+    deliveryState: "sending",
+    seen: true,
+  };
+  const serverMsg = (id: string, timestamp: number, text: string): ChatMessage => ({
+    id,
+    text,
+    direction: "incoming",
+    timestamp,
+    deliveryState: "delivered",
+    seen: false,
+  });
+
+  it("adds missing server messages in timestamp order, keeping local ones", () => {
+    const controller = new ChatController(contact, [outgoing]);
+    controller.mergeHistory([serverMsg("s-1", 1000, "before"), serverMsg("s-2", 2000, "after")]);
+
+    expect(controller.getState().messages.map((m) => m.text)).toEqual(["before", "mine", "after"]);
+  });
+
+  it("is a no-op when the server has nothing new — no re-render", () => {
+    const controller = new ChatController(contact, [outgoing]);
+    const callback = vi.fn();
+    controller.on("state:changed", callback);
+
+    controller.mergeHistory([{ ...outgoing }]);
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it("recomputes unread from the merged-in incoming messages", () => {
+    const controller = new ChatController(contact, []);
+    controller.mergeHistory([serverMsg("s-1", 1000, "a"), serverMsg("s-2", 2000, "b")]);
+
+    expect(controller.getState().unreadCount).toBe(2);
   });
 });

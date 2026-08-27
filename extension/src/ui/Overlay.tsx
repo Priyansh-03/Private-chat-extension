@@ -25,8 +25,19 @@ import { useSidebarWidth } from "./hooks/useSidebarWidth";
 import { useFabCharacter } from "./hooks/useFabCharacter";
 import { useSettings } from "./hooks/useSettings";
 
+// False once the extension has been reloaded/updated while this page stayed open — Chrome
+// orphans the old content script and sets chrome.runtime to undefined. Touching it then throws
+// and, from inside an effect, takes the whole overlay down. A page reload attaches a fresh script.
+function extensionAlive(): boolean {
+  return typeof chrome !== "undefined" && !!chrome.runtime?.id;
+}
+
 function requestInitialStatus(): Promise<ConnectionStatus> {
   return new Promise((resolve) => {
+    if (!extensionAlive()) {
+      resolve("connecting");
+      return;
+    }
     const request: OutboundToBackground = { type: "chat:request-status" };
     chrome.runtime.sendMessage(request, (response: InboundFromBackground | undefined) => {
       void chrome.runtime.lastError;
@@ -50,17 +61,25 @@ export function Overlay() {
   // Fetching history here (rather than relying solely on live broadcasts) is what makes any tab —
   // not just the one that happened to be open when a message arrived — converge on the same
   // conversation: the server is now the single source of truth every tab hydrates from.
-  useEffect(() => {
-    if (!USE_REAL_BACKEND) return;
-    let cancelled = false;
-    const request: OutboundToBackground = { type: "contacts:request-list" };
-    chrome.runtime.sendMessage(request).then(async (contacts: RemoteContactSnapshot[] | undefined) => {
-      if (cancelled || !contacts) return;
+  // Pulls contacts + each one's full server history and reconciles it into the workspace: a
+  // contact this tab doesn't know yet is added, an existing one has any missing messages merged
+  // in (see ChatController.mergeHistory). Runs once on mount and again on demand from the manual
+  // refresh button in both panel headers, for when live sync in a background tab has drifted.
+  const syncFromServer = useMemo(
+    () => async () => {
+      if (!USE_REAL_BACKEND || !extensionAlive()) return;
+      const listRequest: OutboundToBackground = { type: "contacts:request-list" };
+      const contacts: RemoteContactSnapshot[] | undefined = await chrome.runtime.sendMessage(listRequest);
+      if (!contacts) return;
       await Promise.all(
         contacts.map(async (contact) => {
           const historyRequest: OutboundToBackground = { type: "chat:request-history", contactId: contact.contactId };
           const messages: ChatMessage[] = (await chrome.runtime.sendMessage(historyRequest)) ?? [];
-          if (cancelled) return;
+          const controller = workspace.getController(contact.contactId);
+          if (controller) {
+            controller.mergeHistory(messages);
+            return;
+          }
           workspace.addContact(
             {
               contact: {
@@ -75,11 +94,26 @@ export function Overlay() {
           );
         }),
       );
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [workspace]);
+    },
+    [workspace],
+  );
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useMemo(
+    () => async () => {
+      setRefreshing(true);
+      try {
+        await syncFromServer();
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [syncFromServer],
+  );
+
+  useEffect(() => {
+    void syncFromServer();
+  }, [syncFromServer]);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLButtonElement>(null);
@@ -193,6 +227,10 @@ export function Overlay() {
   useEffect(() => {
     if (!settings.extensionEnabled) {
       setConnectionStatus("off");
+      return;
+    }
+    if (!extensionAlive()) {
+      setConnectionStatus("connecting");
       return;
     }
     let cancelled = false;
@@ -386,6 +424,8 @@ export function Overlay() {
           privacyMode={settings.privacyMode}
           quickReplies={settings.quickReplies}
           onExpand={handleExpand}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
           onClose={disclosure.close}
           onMouseEnter={handleZoneEnter}
           onMouseLeave={handleZoneLeave}
@@ -405,6 +445,8 @@ export function Overlay() {
         onRetry={handleRetry}
         onRevealMessage={handleRevealMessage}
         onClose={disclosure.close}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
         privacyMode={settings.privacyMode}
         showStatus={settings.showStatus}
         quickReplies={settings.quickReplies}

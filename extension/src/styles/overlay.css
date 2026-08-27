@@ -875,6 +875,21 @@
   background: var(--pco-hover-bg);
 }
 
+.pco-header__btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.pco-header__btn--spinning {
+  animation: pco-spin 700ms linear infinite;
+}
+
+@keyframes pco-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .pco-header__back {
   font-size: 16px;
 }

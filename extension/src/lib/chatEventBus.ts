@@ -162,6 +162,17 @@ export class ChatController extends TypedEmitter<ChatBusEvents> {
     this.emit("message:incoming", message);
   }
 
+  /** Forced resync from the server's history — adds any messages this tab is missing (by id) and
+   * leaves existing ones untouched, so still-optimistic outgoing bubbles aren't dropped. Used by
+   * the manual refresh button when live sync in a background tab has fallen behind. */
+  mergeHistory(history: ChatMessage[]): void {
+    const known = new Set(this.state.messages.map((m) => m.id));
+    const missing = history.filter((m) => !known.has(m.id));
+    if (missing.length === 0) return;
+    const messages = [...this.state.messages, ...missing].sort((a, b) => a.timestamp - b.timestamp);
+    this.setState({ messages, unreadCount: computeUnreadCount(messages) });
+  }
+
   renameContact(name: string): void {
     const trimmed = name.trim();
     if (!trimmed || trimmed === this.state.contact.name) return;

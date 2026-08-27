@@ -26,6 +26,8 @@ interface ChatPanelProps {
   onRetry: (messageId: string) => void;
   onRevealMessage: (messageId: string) => void;
   onClose: () => void;
+  onRefresh: () => void;
+  refreshing: boolean;
   privacyMode: boolean;
   showStatus: boolean;
   quickReplies: string[];
@@ -55,6 +57,8 @@ export function ChatPanel({
   onRetry,
   onRevealMessage,
   onClose,
+  onRefresh,
+  refreshing,
   privacyMode,
   showStatus,
   quickReplies,
@@ -95,6 +99,8 @@ export function ChatPanel({
             showStatus={showStatus}
             onMinimize={onClose}
             onClose={onClose}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
           />
           <ContactList
             contactIds={contactIds}
@@ -114,6 +120,8 @@ export function ChatPanel({
             onBack={showBack ? onShowList : undefined}
             onMinimize={onClose}
             onClose={onClose}
+            onRefresh={onRefresh}
+            refreshing={refreshing}
             onRenameContact={onRenameContact}
           />
           {state.contact.connected ? (

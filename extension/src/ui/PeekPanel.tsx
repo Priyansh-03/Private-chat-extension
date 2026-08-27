@@ -4,6 +4,7 @@ import type { ChatMessage, TypingState } from "../lib/types";
 import { PrivacyText } from "./PrivacyText";
 import { MessageList } from "./MessageList";
 import { Composer } from "./Composer";
+import { RefreshButton } from "./RefreshButton";
 
 export const PEEK_SIZE = { width: 300, height: 320 };
 
@@ -23,6 +24,8 @@ interface PeekPanelProps {
   privacyMode: boolean;
   quickReplies: string[];
   onExpand: () => void;
+  onRefresh: () => void;
+  refreshing: boolean;
   onClose: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
@@ -47,6 +50,8 @@ export function PeekPanel({
   privacyMode,
   quickReplies,
   onExpand,
+  onRefresh,
+  refreshing,
   onClose,
   onMouseEnter,
   onMouseLeave,
@@ -73,6 +78,7 @@ export function PeekPanel({
           <PrivacyText text={contactName} enabled={privacyMode} />
         </span>
         <div className="pco-peek__top-actions">
+          <RefreshButton onRefresh={onRefresh} refreshing={refreshing} />
           <button type="button" className="pco-header__btn" aria-label="Expand to full chat" onClick={onExpand}>
             ⤢
           </button>
