@@ -267,13 +267,28 @@ class BackendTransport implements ChatTransport {
     this.secretKey = keyPair.secretKey;
 
     const stored = await loadDeviceIdentity();
-    if (stored) {
+    if (stored && (await this.identityStillValid(stored.authToken))) {
       this.identity = stored;
       return;
     }
+    // Either no identity yet, or the server no longer knows this one — the backend was pointed at
+    // a different deployment, or its database was reset. Any prior pairings are already dead
+    // server-side; registering fresh (and re-pairing) is the only recovery.
     const registered = await registerDevice(keyPair.publicKey);
     this.identity = { deviceId: registered.device_id, authToken: registered.auth_token };
     await saveDeviceIdentity(this.identity);
+  }
+
+  /** A cached identity is trusted across restarts, but only after one authed call confirms the
+   * server still recognizes it. A 401 means re-register; a network/5xx failure is transient and
+   * must not discard a good identity. */
+  private async identityStillValid(authToken: string): Promise<boolean> {
+    try {
+      await listContacts(authToken);
+      return true;
+    } catch (error) {
+      return !(error instanceof BackendApiError && error.status === 401);
+    }
   }
 
   /** Upserts rather than replacing the map wholesale: a slightly-stale REST response landing
