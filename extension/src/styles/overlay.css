@@ -1018,6 +1018,13 @@
   background: var(--pco-panel-bg);
 }
 
+/* Peek uses this same list, same content, same behavior — just the compact card's spacing
+   instead of the full sidebar's. */
+.pco-message-list--compact {
+  padding: 8px 12px;
+  background: transparent;
+}
+
 .pco-bubble-row {
   display: flex;
 }
@@ -1357,40 +1364,6 @@
   gap: 2px;
 }
 
-.pco-peek__messages-wrap {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.pco-peek__messages {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  pointer-events: auto;
-  padding: 8px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.pco-peek__more-pill {
-  position: absolute;
-  bottom: 6px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 3px 10px;
-  border-radius: 10px;
-  background: var(--pco-accent);
-  color: #fff;
-  font-size: 10.5px;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  pointer-events: none;
-}
 
 .pco-peek__empty {
   flex: 1;

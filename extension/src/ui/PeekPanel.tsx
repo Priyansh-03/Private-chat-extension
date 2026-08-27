@@ -1,8 +1,8 @@
 import type { RefObject } from "react";
 import { transformOriginFor, type Anchor } from "../lib/geometry";
-import type { ChatMessage } from "../lib/types";
+import type { ChatMessage, TypingState } from "../lib/types";
 import { PrivacyText } from "./PrivacyText";
-import { PeekMessageList } from "./PeekMessageList";
+import { MessageList } from "./MessageList";
 import { Composer } from "./Composer";
 
 export const PEEK_SIZE = { width: 300, height: 320 };
@@ -14,6 +14,7 @@ interface PeekPanelProps {
   contactName: string;
   connected: boolean;
   messages: ChatMessage[];
+  remoteTyping: TypingState;
   draft: string;
   onDraftChange: (text: string) => void;
   onSend: (text: string) => void;
@@ -37,6 +38,7 @@ export function PeekPanel({
   contactName,
   connected,
   messages,
+  remoteTyping,
   draft,
   onDraftChange,
   onSend,
@@ -85,7 +87,15 @@ export function PeekPanel({
           {messages.length === 0 ? (
             <div className="pco-peek__empty">No messages yet</div>
           ) : (
-            <PeekMessageList messages={messages} privacyMode={privacyMode} onRetry={onRetry} onRevealMessage={onRevealMessage} />
+            <MessageList
+              messages={messages}
+              privacyMode={privacyMode}
+              onRetry={onRetry}
+              onRevealMessage={onRevealMessage}
+              remoteTyping={remoteTyping}
+              contactName={contactName}
+              compact
+            />
           )}
 
           <Composer

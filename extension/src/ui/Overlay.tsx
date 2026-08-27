@@ -2,7 +2,6 @@ import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { USE_REAL_BACKEND } from "../lib/backendConfig";
 import { MESSAGE_NOTICE_DURATION_MS, PANEL_AUTO_CLOSE_MS } from "../lib/constants";
 import { createDemoSeeds } from "../lib/devSeed";
-import { getUnseenIncoming } from "../lib/chatEventBus";
 import { playNotificationSound, primeAudio } from "../lib/sound";
 import type { ChatWorkspace as ChatWorkspaceType } from "../lib/workspace";
 import { ChatWorkspace } from "../lib/workspace";
@@ -306,41 +305,6 @@ export function Overlay() {
   // null until at least one contact exists (real contacts arrive asynchronously — see the
   // contacts:request-list effect above; demo mode always has its seeds by construction).
   const activeState = workspace.getActiveController()?.getState() ?? null;
-  const lastMessage = activeState?.messages[activeState.messages.length - 1];
-
-  // Which messages appear in peek is a snapshot taken at open time, not fully live — otherwise
-  // hovering the top (oldest) message removes it and the next one can slide under the cursor and
-  // get marked seen too, without a real hover. But two things must still track live: a message
-  // sent or received *after* that snapshot (e.g. you type and send while peek is still open) needs
-  // to show up, and a captured message's delivery ticks (sending -> delivered -> read) need to
-  // keep updating rather than freezing at whatever state they were in at snapshot time. So only
-  // *membership* (which ids are shown, and their order) is frozen/append-only; the message objects
-  // themselves are always resolved fresh from live state.
-  const peekBatchRef = useRef<ChatMessage[]>([]);
-  const peekIdsRef = useRef<string[]>([]);
-  const peekSnapshotKeyRef = useRef<string | null>(null);
-  if (disclosure.mode === "peek" && activeState) {
-    const activeId = workspace.getActiveId() ?? null;
-    if (peekSnapshotKeyRef.current !== activeId) {
-      peekSnapshotKeyRef.current = activeId;
-      const unseen = getUnseenIncoming(activeState.messages);
-      const initial = unseen.length > 0 ? unseen : lastMessage ? [lastMessage] : [];
-      peekIdsRef.current = initial.map((m) => m.id);
-    } else {
-      const knownIds = new Set(peekIdsRef.current);
-      for (const message of activeState.messages) {
-        if (!knownIds.has(message.id)) {
-          peekIdsRef.current.push(message.id);
-          knownIds.add(message.id);
-        }
-      }
-    }
-    const byId = new Map(activeState.messages.map((m) => [m.id, m]));
-    peekBatchRef.current = peekIdsRef.current.map((id) => byId.get(id)).filter((m): m is ChatMessage => m !== undefined);
-  } else {
-    peekSnapshotKeyRef.current = null;
-    peekIdsRef.current = [];
-  }
 
   if (!settings.extensionEnabled || !settings.showFab) return null;
 
@@ -390,7 +354,8 @@ export function Overlay() {
           anchor={anchor}
           contactName={activeState.contact.name}
           connected={activeState.contact.connected}
-          messages={peekBatchRef.current}
+          messages={activeState.messages}
+          remoteTyping={activeState.remoteTyping}
           draft={activeState.draft}
           onDraftChange={handleDraftChange}
           onSend={handleSend}

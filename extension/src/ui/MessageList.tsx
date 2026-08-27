@@ -10,9 +10,20 @@ interface MessageListProps {
   onRevealMessage: (messageId: string) => void;
   remoteTyping: TypingState;
   contactName: string;
+  /** Peek uses the same list, same content, same behavior as the full panel — just the compact
+   * spacing/background that fits its smaller card instead of the sidebar's. */
+  compact?: boolean;
 }
 
-export function MessageList({ messages, privacyMode, onRetry, onRevealMessage, remoteTyping, contactName }: MessageListProps) {
+export function MessageList({
+  messages,
+  privacyMode,
+  onRetry,
+  onRevealMessage,
+  remoteTyping,
+  contactName,
+  compact = false,
+}: MessageListProps) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -20,7 +31,7 @@ export function MessageList({ messages, privacyMode, onRetry, onRevealMessage, r
   }, [messages.length, remoteTyping]);
 
   return (
-    <div className="pco-message-list">
+    <div className={`pco-message-list${compact ? " pco-message-list--compact" : ""}`}>
       {messages.map((message) => (
         <MessageBubble
           key={message.id}

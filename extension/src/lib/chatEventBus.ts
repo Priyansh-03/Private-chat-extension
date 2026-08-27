@@ -18,10 +18,6 @@ function computeUnreadCount(messages: ChatMessage[]): number {
   return messages.reduce((n, m) => n + (m.direction === "incoming" && !m.seen ? 1 : 0), 0);
 }
 
-export function getUnseenIncoming(messages: ChatMessage[]): ChatMessage[] {
-  return messages.filter((m) => m.direction === "incoming" && !m.seen);
-}
-
 /** Inserts in timestamp order rather than trusting call order to already match chronology — a
  * live chat:incoming and a just-hydrated history batch (or a message replayed from
  * workspace.ts's pendingEvents buffer) can otherwise land in whatever order their async work
