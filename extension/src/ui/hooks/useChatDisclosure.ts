@@ -49,11 +49,15 @@ export function useChatDisclosure(containerRef: RefObject<HTMLElement | null>): 
       if (event.key === "Escape") closeInstant();
     };
 
+    // Capture phase for both — Overlay.tsx's .pco-root now stops keydown/pointerdown from
+    // bubbling past it (so a host page's own hotkeys don't fire while typing in this overlay),
+    // which would otherwise stop Escape and outside-click-to-close from ever reaching a
+    // bubble-phase listener here too. Capture fires on the way down, before that point.
     document.addEventListener("pointerdown", handlePointerDown, true);
-    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown, true);
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown, true);
-      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [mode, close, closeInstant, containerRef]);
 
