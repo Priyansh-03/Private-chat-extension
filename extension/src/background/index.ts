@@ -113,8 +113,8 @@ chrome.runtime.onMessage.addListener((message: OutboundToBackground, sender, sen
       void transport.renameContact(message.contactId, message.name).then(sendResponse);
       return true;
     }
-    case "chat:request-pending": {
-      void transport.drainPendingIncoming().then(sendResponse);
+    case "chat:request-history": {
+      void transport.getMessageHistory(message.contactId).then(sendResponse);
       return true;
     }
     default:

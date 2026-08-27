@@ -1,4 +1,4 @@
-import type { ConnectionStatus, PresenceStatus, TypingState } from "./types";
+import type { ChatMessage, ConnectionStatus, PresenceStatus, TypingState } from "./types";
 
 /** Content script -> background, stand-in for what would go out over a real WebSocket. */
 export type OutboundToBackground =
@@ -11,7 +11,7 @@ export type OutboundToBackground =
   | { type: "contact:accept-invite"; code: string; displayName: string }
   | { type: "contact:remove"; contactId: string }
   | { type: "contact:rename"; contactId: string; name: string }
-  | { type: "chat:request-pending" };
+  | { type: "chat:request-history"; contactId: string };
 
 /** Background -> every tab's content script, stand-in for real WebSocket frames. */
 export type InboundFromBackground =
@@ -41,11 +41,8 @@ export type RemoveContactResponse = { ok: true } | { ok: false; error: string };
 
 export type RenameContactResponse = { ok: true } | { ok: false; error: string };
 
-/** Response to chat:request-pending — see backendTransport.ts's incoming-inbox. */
-export interface PendingIncomingEntry {
-  contactId: string;
-  message: { id: string; text: string; timestamp: number };
-}
+/** Response to chat:request-history — already decrypted, ready to seed a ChatController. */
+export type MessageHistoryResponse = ChatMessage[];
 
 export interface RemoteContactSnapshot {
   contactId: string;

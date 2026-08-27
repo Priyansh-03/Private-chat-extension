@@ -16,8 +16,8 @@ import {
   MOCK_TYPING_DURATION_MS,
 } from "../lib/constants";
 import { DEMO_CONTACTS } from "../lib/demoContacts";
-import type { PendingIncomingEntry, RemoveContactResponse, RenameContactResponse } from "../lib/transportProtocol";
-import type { ConnectionStatus, PresenceStatus, TypingState } from "../lib/types";
+import type { RemoveContactResponse, RenameContactResponse } from "../lib/transportProtocol";
+import type { ChatMessage, ConnectionStatus, PresenceStatus, TypingState } from "../lib/types";
 import { notifyNewMessage } from "./notifications";
 import { broadcastToAllTabs, sendToTab } from "./tabMessaging";
 import type { ChatTransport } from "./chatTransport";
@@ -164,9 +164,9 @@ class MockTransport implements ChatTransport {
     return { ok: true };
   }
 
-  // Nothing to drain: sendToTab/broadcastToAllTabs here are purely in-memory demo traffic with no
-  // durable backlog behind them, unlike backendTransport's incoming-inbox.
-  async drainPendingIncoming(): Promise<PendingIncomingEntry[]> {
+  // Demo contacts already carry their full transcript via devSeed.ts's construction-time seeds —
+  // no server to hydrate from.
+  async getMessageHistory(_contactId: string): Promise<ChatMessage[]> {
     return [];
   }
 }

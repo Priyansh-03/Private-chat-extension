@@ -4,6 +4,7 @@ import {
   BackendApiError,
   createInvite as createInviteRequest,
   deleteContact as deleteContactRequest,
+  fetchMessageHistory,
   renameContact as renameContactRequest,
   listContacts,
   registerDevice,
@@ -14,13 +15,11 @@ import { loadDeviceIdentity, saveDeviceIdentity, type DeviceIdentity } from "../
 import type {
   AcceptInviteResponse,
   CreateInviteResponse,
-  PendingIncomingEntry,
   RemoteContactSnapshot,
   RemoveContactResponse,
   RenameContactResponse,
 } from "../lib/transportProtocol";
-import type { ConnectionStatus, PresenceStatus, TypingState } from "../lib/types";
-import * as inbox from "./incomingInbox";
+import type { ChatMessage, ConnectionStatus, PresenceStatus, TypingState } from "../lib/types";
 import { notifyNewMessage } from "./notifications";
 import * as retryQueue from "./pendingRetryQueue";
 import { broadcastToAllTabs } from "./tabMessaging";
@@ -170,8 +169,40 @@ class BackendTransport implements ChatTransport {
     }
   }
 
-  async drainPendingIncoming(): Promise<PendingIncomingEntry[]> {
-    return inbox.drainAll();
+  async getMessageHistory(contactId: string): Promise<ChatMessage[]> {
+    await this.ensureIdentity();
+    if (!this.identity) return [];
+    let contact = this.contacts.get(contactId);
+    if (!contact) {
+      // Same "cache might just be stale" retry as the live chat:incoming path below.
+      await this.refreshContacts();
+      contact = this.contacts.get(contactId);
+      if (!contact) return [];
+    }
+    let remote;
+    try {
+      remote = await fetchMessageHistory(this.identity.authToken, contactId);
+    } catch {
+      return []; // transient fetch failure — caller falls back to whatever it already has
+    }
+    const messages: ChatMessage[] = [];
+    for (const entry of remote) {
+      const plaintext =
+        this.secretKey && contact ? decryptMessage(entry.ciphertext, entry.nonce, contact.publicKey, this.secretKey) : null;
+      if (plaintext === null) continue; // failed to authenticate; skip rather than fail the whole history
+      messages.push({
+        id: entry.message_id,
+        text: plaintext,
+        direction: entry.direction,
+        timestamp: new Date(entry.created_at).getTime(),
+        deliveryState: "delivered",
+        // Always true — this is hydrated past history, not a live arrival, so it shouldn't
+        // re-trigger the unread badge/privacy-hover/pulse mechanics that a genuinely new
+        // chat:incoming does (see chatEventBus.ts's receiveMessage, which starts unseen).
+        seen: true,
+      });
+    }
+    return messages;
   }
 
   async getContactsSnapshot(): Promise<RemoteContactSnapshot[]> {
@@ -369,14 +400,11 @@ class BackendTransport implements ChatTransport {
         if (plaintext === null) return; // unknown sender or failed to authenticate; drop
         this.send({ type: "chat:delivered-ack", contactId: frame.contactId, messageId: frame.message.id });
 
+        // No client-side durability buffer needed anymore — the server persisted this the moment
+        // it accepted the chat:outgoing (see backend/src/ws/handlers.py), so a tab that wasn't
+        // open to catch this live broadcast just picks it up via GET /messages on its next mount.
         const message = { id: frame.message.id, text: plaintext, timestamp: Date.now() };
-        // Persist before broadcasting: if no tab is open (or listening) to receive the live
-        // broadcast below, this is the only record of the message left anywhere — the server
-        // never stores it, and chat:delivered-ack above already told the sender it arrived.
-        // Without this it was just silently gone, despite the receiver's OS notification firing.
-        await inbox.enqueue({ contactId: frame.contactId, message });
-        const deliveredLive = await broadcastToAllTabs({ type: "chat:incoming", contactId: frame.contactId, message });
-        if (deliveredLive) await inbox.dequeue(message.id);
+        await broadcastToAllTabs({ type: "chat:incoming", contactId: frame.contactId, message });
         void notifyNewMessage();
         return;
       }

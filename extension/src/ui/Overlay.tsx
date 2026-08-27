@@ -9,7 +9,6 @@ import { ChatWorkspace } from "../lib/workspace";
 import type {
   InboundFromBackground,
   OutboundToBackground,
-  PendingIncomingEntry,
   RemoteContactSnapshot,
   RemoveContactResponse,
   RenameContactResponse,
@@ -43,49 +42,40 @@ export function Overlay() {
   if (!workspaceRef.current) workspaceRef.current = new ChatWorkspace(USE_REAL_BACKEND ? [] : createDemoSeeds());
   const workspace = workspaceRef.current;
 
-  // Real contacts arrive asynchronously: an initial fetch here, then live contact:added events
-  // via the existing workspace.route() call below (both the inviter and the acceptor side of a
-  // pairing get one — see backendTransport.ts). Demo mode already has its seeds at construction.
+  // Real contacts arrive asynchronously: an initial fetch here (contacts + each one's full
+  // decrypted history from the server, see backendTransport.ts's getMessageHistory), then live
+  // contact:added events via the existing workspace.route() call below (both the inviter and the
+  // acceptor side of a pairing get one). Demo mode already has its seeds at construction.
   // Silent: these are pre-existing contacts this tab is just learning about, not new pairings —
   // otherwise the "New contact added" callout would replay for all of them on every page load.
+  // Fetching history here (rather than relying solely on live broadcasts) is what makes any tab —
+  // not just the one that happened to be open when a message arrived — converge on the same
+  // conversation: the server is now the single source of truth every tab hydrates from.
   useEffect(() => {
     if (!USE_REAL_BACKEND) return;
     let cancelled = false;
     const request: OutboundToBackground = { type: "contacts:request-list" };
-    chrome.runtime.sendMessage(request).then((contacts: RemoteContactSnapshot[] | undefined) => {
+    chrome.runtime.sendMessage(request).then(async (contacts: RemoteContactSnapshot[] | undefined) => {
       if (cancelled || !contacts) return;
-      for (const contact of contacts) {
-        workspace.addContact(
-          {
-            contact: {
-              id: contact.contactId,
-              name: contact.name || defaultContactName(contact.contactId),
-              status: contact.status,
-              connected: contact.connected,
+      await Promise.all(
+        contacts.map(async (contact) => {
+          const historyRequest: OutboundToBackground = { type: "chat:request-history", contactId: contact.contactId };
+          const messages: ChatMessage[] = (await chrome.runtime.sendMessage(historyRequest)) ?? [];
+          if (cancelled) return;
+          workspace.addContact(
+            {
+              contact: {
+                id: contact.contactId,
+                name: contact.name || defaultContactName(contact.contactId),
+                status: contact.status,
+                connected: contact.connected,
+              },
+              messages,
             },
-          },
-          { silent: true },
-        );
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [workspace]);
-
-  // Messages that arrived while no tab was open to receive them live (see backendTransport.ts's
-  // incoming-inbox) — claimed by whichever tab starts up first. route() already buffers a
-  // chat:incoming for a contact this tab hasn't loaded yet (see pendingEvents), so this doesn't
-  // need to wait on the contacts fetch above. Not silent — the user genuinely hasn't seen these.
-  useEffect(() => {
-    if (!USE_REAL_BACKEND) return;
-    let cancelled = false;
-    const request: OutboundToBackground = { type: "chat:request-pending" };
-    chrome.runtime.sendMessage(request).then((pending: PendingIncomingEntry[] | undefined) => {
-      if (cancelled || !pending) return;
-      for (const entry of pending) {
-        workspace.route({ type: "chat:incoming", contactId: entry.contactId, message: entry.message });
-      }
+            { silent: true },
+          );
+        }),
+      );
     });
     return () => {
       cancelled = true;

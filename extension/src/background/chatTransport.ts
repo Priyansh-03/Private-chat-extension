@@ -1,5 +1,5 @@
-import type { PendingIncomingEntry, RemoveContactResponse, RenameContactResponse } from "../lib/transportProtocol";
-import type { ConnectionStatus, TypingState } from "../lib/types";
+import type { RemoveContactResponse, RenameContactResponse } from "../lib/transportProtocol";
+import type { ChatMessage, ConnectionStatus, TypingState } from "../lib/types";
 
 /** Implemented by both mockTransport (dev/demo, no real backend) and backendTransport (real
  * WebSocket client) so background/index.ts can hold one reference and switch between them
@@ -13,8 +13,9 @@ export interface ChatTransport {
   handleReadAck(contactId: string, messageId: string, readAt: number): void | Promise<void>;
   removeContact(contactId: string): Promise<RemoveContactResponse>;
   renameContact(contactId: string, name: string): Promise<RenameContactResponse>;
-  /** Incoming messages that arrived while no tab was open to receive them live — see
-   * backendTransport.ts's chat:incoming handling. Draining hands them to the caller and clears
-   * them from storage in the same call, so only the first tab to start up after the fact gets them. */
-  drainPendingIncoming(): Promise<PendingIncomingEntry[]>;
+  /** Full decrypted history for one conversation, from the server's durable (ciphertext-only)
+   * store — see backend/docs/protocol.md's GET /messages. Called whenever a tab needs to hydrate
+   * a contact's conversation, so every tab (and every device) converges on the same history
+   * instead of each tab keeping its own independent in-memory copy. */
+  getMessageHistory(contactId: string): Promise<ChatMessage[]>;
 }

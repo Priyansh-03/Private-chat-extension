@@ -98,3 +98,15 @@ export function renameContact(authToken: string, peerDeviceId: string, displayNa
     body: JSON.stringify({ display_name: displayName }),
   });
 }
+
+export interface RemoteMessage {
+  message_id: string;
+  direction: "outgoing" | "incoming";
+  ciphertext: string;
+  nonce: string;
+  created_at: string;
+}
+
+export function fetchMessageHistory(authToken: string, peerDeviceId: string): Promise<RemoteMessage[]> {
+  return request(`/api/v1/messages/${encodeURIComponent(peerDeviceId)}`, { headers: authHeaders(authToken) });
+}
