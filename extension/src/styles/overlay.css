@@ -1260,6 +1260,12 @@
   color: var(--pco-text-secondary);
 }
 
+/* Privacy Mode's masked-draft look — dots instead of type="password", so the browser's password
+   manager never sees this as a login field and can't autofill a saved credential into it. */
+.pco-input--masked {
+  -webkit-text-security: disc;
+}
+
 .pco-input:disabled {
   cursor: default;
 }

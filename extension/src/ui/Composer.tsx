@@ -121,10 +121,16 @@ export function Composer({
         <div className="pco-input-wrap">
           <input
             ref={inputRef}
-            type={revealed ? "text" : "password"}
+            // Always type="text" — a real type="password" field is a signal to the browser's
+            // (and any third-party) password manager that this is a login field, and it can
+            // autofill a saved credential straight into it, which then sits there as plain text
+            // ready to be sent as a chat message. The masked-dots look comes from the
+            // pco-input--masked class below (-webkit-text-security) instead, which has no such
+            // side effect since the field is never actually type="password".
+            type="text"
             autoComplete="off"
             spellCheck={false}
-            className="pco-input"
+            className={`pco-input${!revealed ? " pco-input--masked" : ""}`}
             style={showOverflowLayer ? { color: "transparent", caretColor: "var(--pco-text)" } : undefined}
             placeholder="Type a message..."
             value={draft}
