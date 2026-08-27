@@ -8,6 +8,7 @@ import { QuickReplies } from "./QuickReplies";
 import { MessageOverflowLayer } from "./MessageOverflowLayer";
 
 const EMOJI_POPOVER_WIDTH = 280;
+const EMOJI_POPOVER_HEIGHT = 380; // matches .pco-emoji-popover's height in overlay.css
 
 interface ComposerProps {
   draft: string;
@@ -67,7 +68,9 @@ export function Composer({
         if (rect) {
           setPickerAnchor({
             left: clamp(rect.left, 8, window.innerWidth - EMOJI_POPOVER_WIDTH - 8),
-            bottom: window.innerHeight - rect.top + 8,
+            // Clamped too, now that the popover has a real height — otherwise a button near the
+            // top of the viewport would push the popover's top edge off-screen.
+            bottom: clamp(window.innerHeight - rect.top + 8, 8, window.innerHeight - EMOJI_POPOVER_HEIGHT - 8),
           });
         }
       }

@@ -100,11 +100,15 @@
   }
 }
 
-/* Portal target for anything that must escape a panel's transform+overflow:hidden (e.g. the emoji popover). */
+/* Portal target for anything that must escape a panel's transform+overflow:hidden (e.g. the emoji
+   popover). Needs its own explicit z-index — .pco-panel/.pco-peek each establish a stacking
+   context via `transform` and are later in the DOM, so without this they paint over anything
+   portaled here instead of under it. */
 .pco-portal-layer {
   position: fixed;
   inset: 0;
   pointer-events: none;
+  z-index: 10;
 }
 
 /* ---------- FAB ---------- */
@@ -1224,9 +1228,14 @@
 .pco-emoji-popover {
   position: fixed;
   border-radius: 10px;
-  overflow: hidden;
   box-shadow: var(--pco-shadow);
-  z-index: 1;
+  /* emoji-mart's picker has no explicit height of its own — without one here it collapses to
+     whatever it can fit, and overflow:hidden then silently clips the rest of the grid instead of
+     letting it scroll, making it look like only a handful of emoji exist. */
+  height: 380px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .pco-emoji-error {
