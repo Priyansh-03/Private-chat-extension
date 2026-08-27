@@ -311,7 +311,29 @@ export function Overlay() {
   const fabConnectionStatus = connectionStatus === "off" ? "connecting" : connectionStatus;
 
   return (
-    <div className="pco-root" data-theme={settings.theme} ref={rootRef}>
+    <div
+      className="pco-root"
+      data-theme={settings.theme}
+      ref={rootRef}
+      // Keyboard/mouse events fired inside a shadow tree still bubble (compose) out past its
+      // boundary into the host page's own document-level listeners — that's standard, not a
+      // leak specific to this extension. A page's own hotkey system (GitHub's single-letter
+      // shortcuts, e.g.) can't tell you were actually typing into *our* input, since
+      // document.activeElement from outside a shadow root only ever reports the shadow host, never
+      // the real focused element inside it — so it fires anyway. Stopping propagation at our own
+      // root is what actually confines interaction with this overlay to this overlay, for anything
+      // that reaches here (only ever things already inside an interactive part of it — everything
+      // else is pointer-events: none and never dispatches here to begin with). React's portal-aware
+      // bubbling means this also covers the emoji popover, even though it portals to a different
+      // DOM location outside this element.
+      onKeyDown={(event) => event.stopPropagation()}
+      onKeyUp={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      onMouseUp={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.stopPropagation()}
+    >
       <div className="pco-portal-layer" ref={portalRef} />
 
       <FabCharacter
