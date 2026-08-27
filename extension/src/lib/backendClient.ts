@@ -90,3 +90,11 @@ export function deleteContact(authToken: string, peerDeviceId: string): Promise<
     headers: authHeaders(authToken),
   });
 }
+
+export function renameContact(authToken: string, peerDeviceId: string, displayName: string): Promise<void> {
+  return request(`/api/v1/contacts/${encodeURIComponent(peerDeviceId)}`, {
+    method: "PATCH",
+    headers: authHeaders(authToken),
+    body: JSON.stringify({ display_name: displayName }),
+  });
+}

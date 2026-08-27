@@ -4,7 +4,6 @@ import { MESSAGE_NOTICE_DURATION_MS, PANEL_AUTO_CLOSE_MS } from "../lib/constant
 import { createDemoSeeds } from "../lib/devSeed";
 import { getUnseenIncoming } from "../lib/chatEventBus";
 import { playNotificationSound, primeAudio } from "../lib/sound";
-import { loadContactNameOverrides, onContactNameOverridesChanged, saveContactName } from "../lib/contactOverrides";
 import type { ChatWorkspace as ChatWorkspaceType } from "../lib/workspace";
 import { ChatWorkspace } from "../lib/workspace";
 import type {
@@ -13,6 +12,7 @@ import type {
   PendingIncomingEntry,
   RemoteContactSnapshot,
   RemoveContactResponse,
+  RenameContactResponse,
 } from "../lib/transportProtocol";
 import { defaultContactName, type ChatMessage, type ConnectionStatus, type DisclosureMode } from "../lib/types";
 import { Fab } from "./Fab";
@@ -229,24 +229,6 @@ export function Overlay() {
     if (!settings.extensionEnabled) disclosure.closeInstant();
   }, [settings.extensionEnabled]);
 
-  // Apply any saved contact renames into the live controllers (initial load, then live updates
-  // from other tabs/the popup) — the controllers are the single source of truth for display name.
-  useEffect(() => {
-    let cancelled = false;
-    const applyOverrides = (overrides: Record<string, string>) => {
-      if (cancelled) return;
-      for (const [contactId, name] of Object.entries(overrides)) {
-        workspace.getController(contactId)?.renameContact(name);
-      }
-    };
-    loadContactNameOverrides().then(applyOverrides);
-    const unsubscribe = onContactNameOverridesChanged(applyOverrides);
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, [workspace]);
-
   const handleSend = useMemo(() => (text: string) => workspace.getActiveController()?.sendMessage(text), [workspace]);
   const handleDraftChange = useMemo(
     () => (text: string) => workspace.getActiveController()?.setDraft(text),
@@ -314,11 +296,19 @@ export function Overlay() {
     setView("conversation");
   };
 
+  // Optimistic locally (instant feedback), then persisted server-side so it survives a reload
+  // and shows up the same way on any other device paired to this account — display_name lives on
+  // the contact row itself now, not a separate local-only override (see backend/src/routes/pairing.py's
+  // PATCH /contacts/{id}). A failure just logs; the name was already applied everywhere it's
+  // visible right now, and the next successful GET /contacts will resync if it silently reverted.
   const handleRenameContact = (name: string) => {
     const contactId = workspace.getActiveId();
     if (contactId === undefined) return;
     workspace.getController(contactId)?.renameContact(name);
-    void saveContactName(contactId, name);
+    const request: OutboundToBackground = { type: "contact:rename", contactId, name };
+    chrome.runtime.sendMessage(request).then((response: RenameContactResponse | undefined) => {
+      if (response && !response.ok) console.warn(`[private-chat] rename failed: ${response.error}`);
+    });
   };
 
   const emojiTheme = settings.theme === "system" ? "auto" : settings.theme === "light" ? "light" : "dark";

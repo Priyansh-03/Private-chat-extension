@@ -1,4 +1,4 @@
-import type { PendingIncomingEntry, RemoveContactResponse } from "../lib/transportProtocol";
+import type { PendingIncomingEntry, RemoveContactResponse, RenameContactResponse } from "../lib/transportProtocol";
 import type { ConnectionStatus, TypingState } from "../lib/types";
 
 /** Implemented by both mockTransport (dev/demo, no real backend) and backendTransport (real
@@ -12,6 +12,7 @@ export interface ChatTransport {
   handleTyping(contactId: string, state: TypingState): void | Promise<void>;
   handleReadAck(contactId: string, messageId: string, readAt: number): void | Promise<void>;
   removeContact(contactId: string): Promise<RemoveContactResponse>;
+  renameContact(contactId: string, name: string): Promise<RenameContactResponse>;
   /** Incoming messages that arrived while no tab was open to receive them live — see
    * backendTransport.ts's chat:incoming handling. Draining hands them to the caller and clears
    * them from storage in the same call, so only the first tab to start up after the fact gets them. */

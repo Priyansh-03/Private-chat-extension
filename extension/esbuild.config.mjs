@@ -25,23 +25,6 @@ const contentCtx = await esbuild.context({
   ...shared,
   entryPoints: ["src/content/index.tsx"],
   outfile: "dist/content.js",
-  // Some host pages leave window.customElements set to null (rather than undefined) in this
-  // content script's isolated world. @emoji-mart/react only guards against `undefined`, so
-  // `customElements.get(...)` throws at bundle-evaluation time and can take the whole content
-  // script down with it. This runs before any bundled module code, including that library's.
-  // Object.defineProperty (not plain assignment) because `customElements` may be an inherited
-  // getter-only accessor, which a plain "window.customElements = ..." silently fails to override.
-  banner: {
-    js: `if (typeof customElements === "undefined" || customElements === null) {
-      try {
-        Object.defineProperty(window, "customElements", {
-          value: { get: () => void 0, define: () => {}, upgrade: () => {}, whenDefined: () => Promise.resolve() },
-          configurable: true,
-          writable: true,
-        });
-      } catch {}
-    }`,
-  },
 });
 
 const backgroundCtx = await esbuild.context({

@@ -223,6 +223,9 @@ export class ChatWorkspace extends TypedEmitter<WorkspaceEvents> {
       case "contact:disconnected":
         this.controllers.get(event.contactId)?.setConnected(false);
         break;
+      case "contact:renamed":
+        this.controllers.get(event.contactId)?.renameContact(event.name);
+        break;
       default:
         break;
     }

@@ -109,6 +109,12 @@ describe("ChatWorkspace", () => {
     expect(workspace.getController("a")?.getState().contact.connected).toBe(false);
   });
 
+  it("route() dispatches contact:renamed to the matching controller's renameContact", () => {
+    const workspace = new ChatWorkspace([{ contact: contact("a", "Original") }]);
+    workspace.route({ type: "contact:renamed", contactId: "a", name: "New Name" });
+    expect(workspace.getController("a")?.getState().contact.name).toBe("New Name");
+  });
+
   it("route() dispatches contact:added to addContact", () => {
     const workspace = new ChatWorkspace([]);
     workspace.route({ type: "contact:added", contactId: "a", name: "Alex", publicKey: "pk" });

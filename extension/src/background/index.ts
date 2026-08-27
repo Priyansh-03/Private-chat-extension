@@ -109,6 +109,10 @@ chrome.runtime.onMessage.addListener((message: OutboundToBackground, sender, sen
       void transport.removeContact(message.contactId).then(sendResponse);
       return true;
     }
+    case "contact:rename": {
+      void transport.renameContact(message.contactId, message.name).then(sendResponse);
+      return true;
+    }
     case "chat:request-pending": {
       void transport.drainPendingIncoming().then(sendResponse);
       return true;

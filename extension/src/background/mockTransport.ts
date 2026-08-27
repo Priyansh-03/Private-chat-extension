@@ -16,7 +16,7 @@ import {
   MOCK_TYPING_DURATION_MS,
 } from "../lib/constants";
 import { DEMO_CONTACTS } from "../lib/demoContacts";
-import type { PendingIncomingEntry, RemoveContactResponse } from "../lib/transportProtocol";
+import type { PendingIncomingEntry, RemoveContactResponse, RenameContactResponse } from "../lib/transportProtocol";
 import type { ConnectionStatus, PresenceStatus, TypingState } from "../lib/types";
 import { notifyNewMessage } from "./notifications";
 import { broadcastToAllTabs, sendToTab } from "./tabMessaging";
@@ -156,6 +156,11 @@ class MockTransport implements ChatTransport {
   async removeContact(contactId: string): Promise<RemoveContactResponse> {
     this.presence.delete(contactId);
     await broadcastToAllTabs({ type: "contact:removed", contactId });
+    return { ok: true };
+  }
+
+  async renameContact(contactId: string, name: string): Promise<RenameContactResponse> {
+    await broadcastToAllTabs({ type: "contact:renamed", contactId, name });
     return { ok: true };
   }
 

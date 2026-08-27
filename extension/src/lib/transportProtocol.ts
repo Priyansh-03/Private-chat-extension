@@ -10,6 +10,7 @@ export type OutboundToBackground =
   | { type: "contact:create-invite" }
   | { type: "contact:accept-invite"; code: string; displayName: string }
   | { type: "contact:remove"; contactId: string }
+  | { type: "contact:rename"; contactId: string; name: string }
   | { type: "chat:request-pending" };
 
 /** Background -> every tab's content script, stand-in for real WebSocket frames. */
@@ -24,7 +25,8 @@ export type InboundFromBackground =
   | { type: "connection:status"; status: ConnectionStatus }
   | { type: "contact:added"; contactId: string; name: string; publicKey: string }
   | { type: "contact:removed"; contactId: string }
-  | { type: "contact:disconnected"; contactId: string };
+  | { type: "contact:disconnected"; contactId: string }
+  | { type: "contact:renamed"; contactId: string; name: string };
 
 /** Responses to the request/response-shaped OutboundToBackground messages above (via sendResponse). */
 export type CreateInviteResponse =
@@ -36,6 +38,8 @@ export type AcceptInviteResponse =
   | { ok: false; error: string };
 
 export type RemoveContactResponse = { ok: true } | { ok: false; error: string };
+
+export type RenameContactResponse = { ok: true } | { ok: false; error: string };
 
 /** Response to chat:request-pending — see backendTransport.ts's incoming-inbox. */
 export interface PendingIncomingEntry {

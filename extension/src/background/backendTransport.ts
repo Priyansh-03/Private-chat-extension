@@ -4,6 +4,7 @@ import {
   BackendApiError,
   createInvite as createInviteRequest,
   deleteContact as deleteContactRequest,
+  renameContact as renameContactRequest,
   listContacts,
   registerDevice,
 } from "../lib/backendClient";
@@ -16,6 +17,7 @@ import type {
   PendingIncomingEntry,
   RemoteContactSnapshot,
   RemoveContactResponse,
+  RenameContactResponse,
 } from "../lib/transportProtocol";
 import type { ConnectionStatus, PresenceStatus, TypingState } from "../lib/types";
 import * as inbox from "./incomingInbox";
@@ -148,6 +150,20 @@ class BackendTransport implements ChatTransport {
       await deleteContactRequest(this.identity.authToken, contactId);
       this.contacts.delete(contactId);
       await broadcastToAllTabs({ type: "contact:removed", contactId });
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, error: friendlyContactError(error) };
+    }
+  }
+
+  async renameContact(contactId: string, name: string): Promise<RenameContactResponse> {
+    try {
+      await this.ensureIdentity();
+      if (!this.identity) return { ok: false, error: "Couldn't set up your device identity. Try again." };
+      await renameContactRequest(this.identity.authToken, contactId, name);
+      const contact = this.contacts.get(contactId);
+      if (contact) contact.name = name;
+      await broadcastToAllTabs({ type: "contact:renamed", contactId, name });
       return { ok: true };
     } catch (error) {
       return { ok: false, error: friendlyContactError(error) };

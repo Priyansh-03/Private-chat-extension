@@ -1,6 +1,12 @@
 import type { NotificationSound } from "./types";
 
 let audioContext: AudioContext | null = null;
+// Constructing an AudioContext at all — not just calling .resume() on it — is what triggers
+// Chrome's "not allowed to start" autoplay-policy console warning when there's been no user
+// gesture on the page yet. Gating construction behind this flag (only ever set by primeAudio,
+// itself only ever called from a real gesture) keeps that warning from firing on a background
+// tab's first-ever notification attempt, instead of just catching a rejected resume() promise.
+let primed = false;
 
 function getContext(): AudioContext | null {
   try {
@@ -17,6 +23,7 @@ function getContext(): AudioContext | null {
  * otherwise a chime scheduled before any interaction on the page is silently dropped.
  */
 export function primeAudio(): void {
+  primed = true;
   const ctx = getContext();
   if (ctx?.state === "suspended") void ctx.resume().catch(() => {});
 }
@@ -58,6 +65,7 @@ function schedule(ctx: AudioContext, kind: NotificationSound): void {
 
 /** Synthesized notification tones — no bundled audio asset needed. */
 export function playNotificationSound(kind: NotificationSound): void {
+  if (!primed) return; // no gesture on this page yet; see the `primed` comment above
   const ctx = getContext();
   if (!ctx) return;
   if (ctx.state === "suspended") {

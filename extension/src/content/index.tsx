@@ -1,3 +1,8 @@
+// Must load before anything that touches Custom Elements (emoji-mart's picker, imported via
+// Overlay below) — some host pages leave window.customElements null/broken. This polyfill's own
+// native-detection skips patching when a real registry already exists, so it's safe to import
+// unconditionally rather than only on pages we've already detected as broken.
+import "@webcomponents/custom-elements";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { Overlay } from "../ui/Overlay";
