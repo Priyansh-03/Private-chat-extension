@@ -4,6 +4,19 @@ from starlette.websockets import WebSocketDisconnect
 from tests.integration.conftest import auth_headers, drain_until, register_device
 
 
+def _drain_presence(ws, contact_id: str, status: str, max_frames: int = 6) -> None:
+    """Read presence:contact frames for `contact_id` until one reports `status`. Tolerates the
+    extra snapshot frame a device now gets for its contacts on connect."""
+    last = None
+    for _ in range(max_frames):
+        frame = ws.receive_json()
+        if frame.get("type") == "presence:contact" and frame.get("contactId") == contact_id:
+            last = frame
+            if frame["status"] == status:
+                return
+    raise AssertionError(f"never saw presence:contact {status!r} for {contact_id!r}; last was {last!r}")
+
+
 def _pair(client, inviter: dict, acceptor: dict) -> None:
     code = client.post("/api/v1/pairing/invite", headers=auth_headers(inviter["auth_token"])).json()["code"]
     response = client.post(
@@ -227,15 +240,30 @@ def test_presence_broadcast_on_connect_and_disconnect(client):
         with client.websocket_connect("/ws") as ws_b:
             ws_b.send_json({"type": "auth", "auth_token": b["auth_token"]})
 
-            online = drain_until(ws_a, "presence:contact")
-            assert online == {"type": "presence:contact", "contactId": b["device_id"], "status": "online"}
+            _drain_presence(ws_a, b["device_id"], "online")
 
             # Close explicitly and read the resulting event *before* letting this
             # `with` block's __exit__ run — TestClient's websocket teardown can
             # otherwise deadlock against the server task still doing async work
             # (broadcasting presence) after the disconnect it's waiting to observe.
             ws_b.close()
-            offline = drain_until(ws_a, "presence:contact")
-            assert offline == {"type": "presence:contact", "contactId": b["device_id"], "status": "offline"}
+            _drain_presence(ws_a, b["device_id"], "offline")
+
+        ws_a.close()
+
+
+def test_presence_snapshot_tells_second_connector_the_peer_is_already_online(client):
+    a = register_device(client, b"a")
+    b = register_device(client, b"b")
+    _pair(client, a, b)
+
+    with client.websocket_connect("/ws") as ws_a:
+        ws_a.send_json({"type": "auth", "auth_token": a["auth_token"]})
+
+        with client.websocket_connect("/ws") as ws_b:
+            ws_b.send_json({"type": "auth", "auth_token": b["auth_token"]})
+            # b connected second and missed a's "online" broadcast — the snapshot must still
+            # tell b that a is online, not leave b showing a as offline.
+            _drain_presence(ws_b, a["device_id"], "online")
 
         ws_a.close()

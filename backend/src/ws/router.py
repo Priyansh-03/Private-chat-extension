@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from constants import WS_AUTH_TIMEOUT_SECONDS, WS_CLOSE_AUTH_INVALID, WS_CLOSE_AUTH_MALFORMED, WS_CLOSE_AUTH_TIMEOUT
 from src.models.ws import AuthFrame, inbound_frame_adapter
 from src.services.auth import hash_token
-from src.services.presence import broadcast_presence
+from src.services.presence import broadcast_presence, send_presence_snapshot
 from src.ws.handlers import dispatch
 
 router = APIRouter()
@@ -62,6 +62,7 @@ async def ws_endpoint(websocket: WebSocket) -> None:
     await manager.register(device_id, websocket)
     await db.devices.update_one({"_id": device_id}, {"$set": {"last_seen_at": datetime.now(timezone.utc)}})
     await broadcast_presence(device_id, "online", db, manager)
+    await send_presence_snapshot(device_id, db, manager)
 
     try:
         while True:

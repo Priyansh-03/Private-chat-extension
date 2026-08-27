@@ -14,3 +14,17 @@ async def broadcast_presence(device_id: str, status: str, db: AsyncIOMotorDataba
         if reverse is None:
             continue
         await manager.send(owner_id, {"type": "presence:contact", "contactId": device_id, "status": status})
+
+
+async def send_presence_snapshot(device_id: str, db: AsyncIOMotorDatabase, manager: ConnectionManager) -> None:
+    """Push the just-connected device the current state of each of its contacts. broadcast_presence
+    only fires on a transition, so whoever connects second would otherwise never learn the other
+    side is already online."""
+    cursor = db.contacts.find({"owner_device_id": device_id, "deleted_at": None}, {"peer_device_id": 1})
+    async for contact in cursor:
+        peer_id = contact["peer_device_id"]
+        reverse = await db.contacts.find_one({"owner_device_id": peer_id, "peer_device_id": device_id, "deleted_at": None})
+        if reverse is None:
+            continue
+        status = "online" if manager.is_online(peer_id) else "offline"
+        await manager.send(device_id, {"type": "presence:contact", "contactId": peer_id, "status": status})
